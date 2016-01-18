@@ -9,9 +9,9 @@
 		<a href="./index_en.html"><img src="./images/en.png"></a>
 	</div>
 	<div class="container">
-		<h1>Índice</h1>
+		<h1>&Iacute;ndice</h1>
 		<p>
-		<a href="#step0">0 - Introducción</a>
+		<a href="#step0">0 - Introducci&oacute;n</a>
 		<br><a href="#step1">1 - Analisis del Log TS</a>
 		<br>&nbsp;&nbsp;&nbsp;<a href="#step11">1.1 - Analisis Inicial</a>
 		<br>&nbsp;&nbsp;&nbsp;<a href="#step12">1.2 - Paquetes de Audio</a>
@@ -28,11 +28,11 @@
 		</p>
 			
 		
-		<h1 id="step0">0 - Introducción</h1>
+		<h1 id="step0">0 - Introducci&oacute;n</h1>
 		<p>Enlace al reto: <a href="https://github.com/ctfs/write-ups-2015/tree/master/32c3-ctf-2015/reversing/carder-500">32C3 CTF 2015: carder-500</a></p>
 		<p>El reto nos dice que debemos descifrar un stream DVB-T para obtener la clave y nos da un stream TS y un firmware de una card, como pista nos muestra una foto de una tarjeta en la que pone "Fun4"</p>
-		<p>Para resolverlo yo he utilizado algunos programas propios que he ido haciendo a lo largo de los años y el lenguaje C# pero se puede realizar con otras herramientas y utilizando el lenguaje de programación que prefiramos</p>
-		<p>Además de conocimientos sobre ASM también será de bastante utilidad tener algunos conocimientos básicos sobre el estandar DVB y DVB-CA, recomiendo revisar alguna documentación sobre estos estandares:<br>
+		<p>Para resolverlo yo he utilizado algunos programas propios que he ido haciendo a lo largo de los años y el lenguaje C# pero se puede realizar con otras herramientas y utilizando el lenguaje de programaci&oacute;n que prefiramos</p>
+		<p>Adem&aacute;s de conocimientos sobre ASM tambi&eacute;n ser&aacute; de bastante utilidad tener algunos conocimientos b&aacute;sicos sobre el estandar DVB y DVB-CA, recomiendo revisar alguna documentaci&oacute;n sobre estos estandares:<br>
 			<a href="https://en.wikipedia.org/wiki/MPEG_transport_stream">https://en.wikipedia.org/wiki/MPEG_transport_stream</a><br>
 			<a href="https://en.wikipedia.org/wiki/Conditional_access">https://en.wikipedia.org/wiki/Conditional_access</a><br>
 			<a href="https://en.wikipedia.org/wiki/Common_Scrambling_Algorithm">https://en.wikipedia.org/wiki/Common_Scrambling_Algorithm</a><br>
@@ -41,12 +41,12 @@
 		<p>Vamos a ello...</p>
 			
 		<h1 id="step1">1 - Analisis del Log TS</h1>
-		<p>Lo primero vamos a analizar el stream DVB-T. Para ello yo he utilizado un programa propio, pero se pueden encontrar por internet varios con muchas opciones y más profesionales, por ejemplo el <a href="http://www.coolstf.com/tsreader/">TSReader</a> o el <a href="http://dvbsnoop.sourceforge.net/">DVBSnoop</a>..</p>
+		<p>Lo primero vamos a analizar el stream DVB-T. Para ello yo he utilizado un programa propio, pero se pueden encontrar por internet varios con muchas opciones y m&aacute;s profesionales, por ejemplo el <a href="http://www.coolstf.com/tsreader/">TSReader</a> o el <a href="http://dvbsnoop.sourceforge.net/">DVBSnoop</a>..</p>
 		<h2 id="step11">1.1 - Analisis Inicial</h2>
 		<p>Analisis Incial de Paquetes:</p>
 		<table>
 		<thead>
-			<th>PID</th><th>Descripción</th><th>Otros</th><th>Nº Paquetes</th><th>Nº Paquetes Iniciales</th>
+			<th>PID</th><th>Descripci&oacute;n</th><th>Otros</th><th>N&deg; Paquetes</th><th>N&deg; Paquetes Iniciales</th>
 		</thead>
 		<tbody>
 			<tr><td>0000</td><td>PAT</td><td>&nbsp;</td><td>1674</td><td>1674</td></tr>
@@ -61,13 +61,13 @@
 			<tr><td>0405</td><td>Audio</td><td>SID 0002 - ffm! (32C3 CTF)</td><td>9779</td><td>699</td></tr>
 			<tr><td>1FFF</td><td>Empty</td><td>&nbsp;</td><td>805461</td><td>0</td></tr>
 		</table>
-		<p>Descripción:</p>
+		<p>Descripci&oacute;n:</p>
 		<ul>
 			<li>0000 = PAT: Nos indica que hay dos servicios con identificadores 0001 y 0002 cuyos PMT estan en los PID 0401 y 0403</li>
 			<li>0010 = NIT: Nos indica que los canales pertenecen a la red "32C3 CTF"</li>
 			<li>0011 = SDT: Nos indica que los canales se llaman "rrr!" y "ffm!"</li>
 			<li>0012 = EIT: Nos indica que hay un evento que dura 96 horas, que empieza el 26/12/2015 23:00:00 y que se llama "32. Chaos Communication Congress"</li>
-			<li>0014 = TDT: Nos indica la hora de la transmisión</li>
+			<li>0014 = TDT: Nos indica la hora de la transmisi&oacute;n</li>
 			<li>1FFF = Empty, canal con paquetes vacios para completar el bitrate.</li>
 			<br>
 			<li>0401 = PMT del SID 0001, nos indica que hay un canal de audio en claro en el PID 0402</li>
@@ -92,12 +92,12 @@
 		<a href="./archive/ChangeKey.png"><img src="./archive/ChangeKey.png"></a>
 
 
-		<p>En el estandar DVB se utiliza el algoritmo CSA para cifrar los datos de audio y/o video. Generalmente las claves a utilizar con el algoritmo CSA (las llamaremos CW) se actualizan cada pocos segundos y se envían cifradas dentro de las ECMs (salvo en sistemas como BISS en el que se utiliza una clave fija y no se envían ECMs).</p>
+		<p>En el estandar DVB se utiliza el algoritmo CSA para cifrar los datos de audio y/o video. Generalmente las claves a utilizar con el algoritmo CSA (las llamaremos CW) se actualizan cada pocos segundos y se env&iacute;an cifradas dentro de las ECMs (salvo en sistemas como BISS en el que se utiliza una clave fija y no se env&iacute;an ECMs).</p>
 
 		<p>Para el reto, nos centraremos en los PID 0404 y 0405 en los que tenemos el audio cifrado y las ECMs para poder descifrarlo.</p>
 
 		<h2 id="step12">1.2 - Paquetes de Audio (0405)</h2>
-		<p>Siguiendo el estandar DVB, la cabecera de los paquetes TS nos da cierta información. Vemos paquetes cifrados con la CW par y otros con la CW impar. Algunos tienen Adaptation Field y otros no. Además podemos ver en algunos paquetes el flag de inicio de la trama PES.</p>
+		<p>Siguiendo el estandar DVB, la cabecera de los paquetes TS nos da cierta informaci&oacute;n. Vemos paquetes cifrados con la CW par y otros con la CW impar. Algunos tienen Adaptation Field y otros no. Adem&aacute;s podemos ver en algunos paquetes el flag de inicio de la trama PES.</p>
 		<p>Algunos Ejemplos de cabeceras:</p>
 		<ul>
 			<li>474405Fx -> SI Inicial, CW Impar, SI Adaptation Field</li>
@@ -121,18 +121,18 @@
 80B08AFFFFC30000 01 58E5085774E0E88AB799B07580FF120B127499C15E7BDA6F5A9EDB785FC01C16646A3DB9069C55997C6BE6021486F839DC1C228142A80BF64802112A062385AF5C270BBE642AD786AA4C6496C92E16571A5D2906E0289B7E1E531837DF4ED9DEDC68FC1CA5AE7866CAF653EC949F5A679AD054A388F47DCEA2F4BBCFA83C94B3 93B95743
 ...</div>
 
-		<p>Vemos que las ECMs están formadas por</p>
+		<p>Vemos que las ECMs est&aacute;n formadas por</p>
 		<ul>
 			<li>Una cabecera (8 bytes). Siempre igual 80B08AFFFFC30000. Extrañamente su byte inicial no cambia entre 80 y 81 para marcar el cambio de ECM/CW</li>
-			<li>Un flag (1 byte) que alterna entre 00 y 01. Ya que la cabecera no cambia ¿Será para indicar la CW a actualizar? Luego lo veremos...</li>
+			<li>Un flag (1 byte) que alterna entre 00 y 01. Ya que la cabecera no cambia ¿Ser&aacute; para indicar la CW a actualizar? Luego lo veremos...</li>
 			<li>Datos aparenemtente cifrados (0x80 bytes)</li>
 			<li>CRC? (4 bytes)</li>
 		</ul>
 
 
 		<h1 id="step2">2 - Analisis del firmware de la tarjeta</h1>
-		<p>El consejo nos muestra una foto de una tarjeta Funcard 4. Buscando información sobre esta tarjeta rápidamente encontraremos que tiene un procesador AT90S8515 y una eeprom AT24C256. Suficiente para comenzar a desensamblar y ver como funciona.</p>
-		<p>Nota: Sin el consejo, también deberíamos ser capaces de reconocer el procesador. Mirando el comienzo del firmware podemos ver xxC0xxC0xxC0xxC0 (13 veces xxC0). Parece una tabla con 13 saltos (una tabla de vectores de interrupción). Asi que, ¿que procesadores de los habitualmente usados en smartcards tiene la tabla de vectores en la posición 0000? ST...no, SLE...no, Texas... no, Motorola... no, ATMEL...si!! Podemos probar a desensamblar usando cualquier AVR y confirmar que funciona.</p>
+		<p>El consejo nos muestra una foto de una tarjeta Funcard 4. Buscando informaci&oacute;n sobre esta tarjeta r&aacute;pidamente encontraremos que tiene un procesador AT90S8515 y una eeprom AT24C256. Suficiente para comenzar a desensamblar y ver como funciona.</p>
+		<p>Nota: Sin el consejo, tambi&eacute;n deber&iacute;amos ser capaces de reconocer el procesador. Mirando el comienzo del firmware podemos ver xxC0xxC0xxC0xxC0 (13 veces xxC0). Parece una tabla con 13 saltos (una tabla de vectores de interrupci&oacute;n). Asi que, ¿que procesadores de los habitualmente usados en smartcards tiene la tabla de vectores en la posici&oacute;n 0000? ST...no, SLE...no, Texas... no, Motorola... no, ATMEL...si!! Podemos probar a desensamblar usando cualquier AVR y confirmar que funciona.</p>
 		<p><a href="http://www.atmel.com/images/doc0841.pdf">Datasheet AT90S8515</a></p>
 		
 		<h2 id="step21">2.1 - Formato ECM</h2>
@@ -142,10 +142,10 @@
 		<p>Cabecera:</p>
 		<ul>
 			<li>CLA = Debe ser DD</li>
-			<li>INS = Para las ECMs será el A2 (Otros comandos en la tarjeta son 84, 26/C6, 82 y CA)</li>
+			<li>INS = Para las ECMs ser&aacute; el A2 (Otros comandos en la tarjeta son 84, 26/C6, 82 y CA)</li>
 			<li>P1 = Debe ser 00</li>
 			<li>P2 = Debe ser 00</li>
-			<li>LEN = Longitud del Cuerpo (en las ECMs debe ser > 3 y debería ser = F0)</li>
+			<li>LEN = Longitud del Cuerpo (en las ECMs debe ser > 3 y deber&iacute;a ser = F0)</li>
 		</ul>
 		<p>Cuerpo:</p>
 		<ul>
@@ -419,7 +419,7 @@ ROM:03BC                 mov     r7, r24         ; r7 = checksum
 ROM:03BD                 rjmp    loopGenerateCW</div>
 <p>Descargar desensamblado completo: <a href="./archive/firmware.lst">firmware.lst</a></p>
 		
-		<p>Código C#:</p> 
+		<p>C&oacute;digo C#:</p> 
 		<div class="code">byte[] buffer = new byte[0x100];
 for (int i = 0; i < 0x80; i++) buffer[i] = ecmdata[i];     //Known
 for (int i = 0; i < 0x80; i++) buffer[i + 0x80] = eepromData[i];     //Unknown
@@ -448,19 +448,19 @@ for (int i = 0; i < 8; i++)
 }</div>
 
 		<h2 id="step23">2.3 - Analisis Debilidades</h2>
-		<p>En este algoritmo podemos encontrar 3 debilidades que nos permitirán descifrar el stream sin conocer los datos de la eeprom de la tarjeta.</p>
+		<p>En este algoritmo podemos encontrar 3 debilidades que nos permitir&aacute;n descifrar el stream sin conocer los datos de la eeprom de la tarjeta.</p>
 
-		<h3>1º Vulnerabilidad</h3>
-		<p>Para calcular una clave de 48 bits (+16 de checksums) está utilizando un seed de menor complejidad. En este caso 8 bytes de un grupo de 16 bytes conocidos, esto nos da</p>
+		<h3>1&deg; Vulnerabilidad</h3>
+		<p>Para calcular una clave de 48 bits (+16 de checksums) est&aacute; utilizando un seed de menor complejidad. En este caso 8 bytes de un grupo de 16 bytes conocidos, esto nos da</p>
 		<div class="code">16!
 --- = 16*15*14*13*12*11*10*9 = 518.918.400 = 0x1EEE1100 posibilidades
 8!</div>
 <p><b>Es una cantidad razonable para realizar bruteforce</b></p>
-		<h3>2º Vulnerabilidad</h3>
-		<p>Aunque la longitud de los datos de eeprom (clave desconocida) son 0x80 bytes. El algoritmo utilizado hace que tenga una complejidad equivalente a 8 bytes. Ya que permutar muchas veces los mismos datos no tiene sentido y lo único que importa es la posición final que se puede conseguir con tan solo 8 permutaciones.</p>
+		<h3>2&deg; Vulnerabilidad</h3>
+		<p>Aunque la longitud de los datos de eeprom (clave desconocida) son 0x80 bytes. El algoritmo utilizado hace que tenga una complejidad equivalente a 8 bytes. Ya que permutar muchas veces los mismos datos no tiene sentido y lo &uacute;nico que importa es la posici&oacute;n final que se puede conseguir con tan solo 8 permutaciones.</p>
 
 		<h3>3ª Vulnerabilidad</h3>
-		<p>El algoritmo utilizado nos permite deducir la clave a partir de una CW. Haciendo bruteforce a una CW podremos calcular un contenido de eeprom válido para cualquier ECM.</p>
+		<p>El algoritmo utilizado nos permite deducir la clave a partir de una CW. Haciendo bruteforce a una CW podremos calcular un contenido de eeprom v&aacute;lido para cualquier ECM.</p>
 
 		<h1 id="step3">3 - Descifrando el stream</h1>
 		<h2 id="step31">3.1 - Bruteforce</h2>
@@ -546,27 +546,27 @@ for (int i = 0; i < 0x80; i++)
    seed[a] = seed[b];
    seed[b] = tmp;
 }
-tresul.Text = "Seed después de las permutaciones de la ECM: " + bytetostring(seed);</div>	
+tresul.Text = "Seed despu&eacute;s de las permutaciones de la ECM: " + bytetostring(seed);</div>	
 
-		<p>-> <b>Seed después de las permutaciones de la ECM: 0908030E0407020F0B000D0A01050C06</b></p>
+		<p>-> <b>Seed despu&eacute;s de las permutaciones de la ECM: 0908030E0407020F0B000D0A01050C06</b></p>
 		<p>B-Vemos los 8 cambios equivalentes a los 0x80 de los bytes de EEPROM</p>
 		<ul>	
-		<li> 1ºByte va a la posicion ??</li>
-		<li> 2ºByte va a la posicion <b>04</b></li>
-		<li> 3ºByte va a la posicion ??</li>
-		<li> 4ºByte va a la posicion ??</li>
-		<li> 5ºByte va a la posicion ??</li>
-		<li> 6ºByte va a la posicion <b>03</b></li>
-		<li> 7ºByte va a la posicion <b>00</b></li>
-		<li> 8ºByte va a la posicion <b>07</b></li>
-		<li> 9ºByte va a la posicion <b>05</b></li>
-		<li>10ºByte va a la posicion ??</li>
-		<li>11ºByte va a la posicion ??</li>
-		<li>12ºByte va a la posicion ??</li>
-		<li>13ºByte va a la posicion ??</li>
-		<li>14ºByte va a la posicion <b>01</b></li>
-		<li>15ºByte va a la posicion <b>06</b></li>
-		<li>16ºByte va a la posicion <b>02</b></li>
+		<li> 1&deg;Byte va a la posicion ??</li>
+		<li> 2&deg;Byte va a la posicion <b>04</b></li>
+		<li> 3&deg;Byte va a la posicion ??</li>
+		<li> 4&deg;Byte va a la posicion ??</li>
+		<li> 5&deg;Byte va a la posicion ??</li>
+		<li> 6&deg;Byte va a la posicion <b>03</b></li>
+		<li> 7&deg;Byte va a la posicion <b>00</b></li>
+		<li> 8&deg;Byte va a la posicion <b>07</b></li>
+		<li> 9&deg;Byte va a la posicion <b>05</b></li>
+		<li>10&deg;Byte va a la posicion ??</li>
+		<li>11&deg;Byte va a la posicion ??</li>
+		<li>12&deg;Byte va a la posicion ??</li>
+		<li>13&deg;Byte va a la posicion ??</li>
+		<li>14&deg;Byte va a la posicion <b>01</b></li>
+		<li>15&deg;Byte va a la posicion <b>06</b></li>
+		<li>16&deg;Byte va a la posicion <b>02</b></li>
 		</ul>	
 		<p>byte[] equivalentMixingEEP = {6, 13, 15, 5, 1, 8, 14, 7};</p>
 				
