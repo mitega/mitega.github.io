@@ -4,15 +4,15 @@ body {
   background: #151515 url("../images/bkg.png") 0 0;
   color: #eaeaea;
   font: 16px;
-  line-height: 1.5;
-  font-family: Monaco, "Bitstream Vera Sans Mono", "Lucida Console", Terminal, monospace;
+  line-height: 1.2;
+  font-family: Helvetica;
 }
 
 /* General & 'Reset' Stuff */
 
 .container {
   width: 90%;
-  max-width: 900px;
+  max-width: 1000px;
   margin: 0 auto;
 }
 
@@ -25,6 +25,7 @@ div.code {
 	width: 100%;
 	overflow:auto;
 	max-height: 800px;
+	color: #000;
 }
 div.dis {
 	max-height: 300px !important;
@@ -32,6 +33,15 @@ div.dis {
 img {
 	width: 240px; 
 	height: 150px;
+}
+
+.idiomas img{
+	width: 40px; 
+	height: 40px;
+}	
+.idiomas {
+	float:right;
+	margin: 20px 50px 0 0;
 }
 
 section {
@@ -184,16 +194,20 @@ pre {
 table {
   width: 100%;
   margin: 0 0 20px 0;
+  border-collapse: collapse;
+  margin-left: 40px;
 }
 
 th {
-  text-align: left;
-  border-bottom: 1px dashed #b5e853;
-  padding: 5px 10px;
+  border: 1px dashed #b5e853;
+  padding: 2px 5px;
+  text-align: right;
 }
 
 td {
-  padding: 5px 10px;
+  border: 1px dashed #b5e853;
+  padding: 2px 5px;
+  text-align: right;
 }
 
 hr {

@@ -9,44 +9,44 @@
 		<a href="./index_en.html"><img src="./images/en.png"></a>
 	</div>
 	<div class="container">
-		<h1>Índice</h1>
+		<h1>Table of Contents</h1>
 		<p>
-		<a href="#step0">0 - Introducción</a>
-		<br><a href="#step1">1 - Analisis del Log TS</a>
-		<br>&nbsp;&nbsp;&nbsp;<a href="#step11">1.1 - Analisis Inicial</a>
-		<br>&nbsp;&nbsp;&nbsp;<a href="#step12">1.2 - Paquetes de Audio</a>
+		<a href="#step0">0 - Abstract</a>
+		<br><a href="#step1">1 - TS Analysis</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step11">1.1 - Initial Analysis</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step12">1.2 - Audio Packets</a>
 		<br>&nbsp;&nbsp;&nbsp;<a href="#step13">1.3 - ECMs</a>
-		<br><a href="#step2">2 - Analisis del firmware de la tarjeta</a>
-		<br>&nbsp;&nbsp;&nbsp;<a href="#step21">2.1 - Formato ECM</a>
-		<br>&nbsp;&nbsp;&nbsp;<a href="#step22">2.2 - Procesado CW</a>
-		<br>&nbsp;&nbsp;&nbsp;<a href="#step23">2.3 - Analisis Debilidades</a>
-		<br><a href="#step3">3 - Descifrando el stream</a>
+		<br><a href="#step2">2 - Card Firmware Analysis</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step21">2.1 - ECM Format</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step22">2.2 - CW Calculation</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step23">2.3 - Weaknesses Analysis</a>
+		<br><a href="#step3">3 - Decrypt the stream</a>
 		<br>&nbsp;&nbsp;&nbsp;<a href="#step31">3.1 - Bruteforce</a>
-		<br>&nbsp;&nbsp;&nbsp;<a href="#step32">3.2 - Crear EEprom equivalente</a>
-		<br>&nbsp;&nbsp;&nbsp;<a href="#step33">3.3 - Descifrar Audio</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step32">3.2 - Creating equivalent EEprom</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step33">3.3 - Decrypting Audio</a>
 		<br>&nbsp;&nbsp;&nbsp;<a href="#step34">3.4 - Flag</a>
 		</p>
 			
 		
-		<h1 id="step0">0 - Introducción</h1>
-		<p>Enlace al reto: <a href="https://github.com/ctfs/write-ups-2015/tree/master/32c3-ctf-2015/reversing/carder-500">32C3 CTF 2015: carder-500</a></p>
-		<p>El reto nos dice que debemos descifrar un stream DVB-T para obtener la clave y nos da un stream TS y un firmware de una card, como pista nos muestra una foto de una tarjeta en la que pone "Fun4"</p>
-		<p>Para resolverlo yo he utilizado algunos programas propios que he ido haciendo a lo largo de los años y el lenguaje C# pero se puede realizar con otras herramientas y utilizando el lenguaje de programación que prefiramos</p>
-		<p>Además de conocimientos sobre ASM también será de bastante utilidad tener algunos conocimientos básicos sobre el estandar DVB y DVB-CA, recomiendo revisar alguna documentación sobre estos estandares:<br>
+		<h1 id="step0">0 - Abstract</h1>
+		<p>Link to the challenge: <a href="https://github.com/ctfs/write-ups-2015/tree/master/32c3-ctf-2015/reversing/carder-500">32C3 CTF 2015: carder-500</a></p>
+		<p>This challenge tells us we have to decrypt a DVB-T stream to obtain the "flag" and they give us a .ts file and a firmware of a card. There is also a hint, a picture of a card with the text "Fun4" over the chip.</p>
+		<p>To resolve it, I have used some own tools that I have prepared along the years and the C# language, but you can use other tools and the programing language that you prefer.</p>
+		<p>Besides ASM knownledge, it will be very usefull have basic knownledge about DVB and DVB-CA standards, I recommend take a look to this documentation:<br>
 			<a href="https://en.wikipedia.org/wiki/MPEG_transport_stream">https://en.wikipedia.org/wiki/MPEG_transport_stream</a><br>
 			<a href="https://en.wikipedia.org/wiki/Conditional_access">https://en.wikipedia.org/wiki/Conditional_access</a><br>
 			<a href="https://en.wikipedia.org/wiki/Common_Scrambling_Algorithm">https://en.wikipedia.org/wiki/Common_Scrambling_Algorithm</a><br>
 			<a href="https://www.dvb.org/resources/public/standards/a38_dvb-si_specification.pdf">https://www.dvb.org/resources/public/standards/a38_dvb-si_specification.pdf</a>
 		</p>
-		<p>Vamos a ello...</p>
+		<p>Here we go...</p>
 			
-		<h1 id="step1">1 - Analisis del Log TS</h1>
-		<p>Lo primero vamos a analizar el stream DVB-T. Para ello yo he utilizado un programa propio, pero se pueden encontrar por internet varios con muchas opciones y más profesionales, por ejemplo el <a href="http://www.coolstf.com/tsreader/">TSReader</a> o el <a href="http://dvbsnoop.sourceforge.net/">DVBSnoop</a>..</p>
-		<h2 id="step11">1.1 - Analisis Inicial</h2>
-		<p>Analisis Incial de Paquetes:</p>
+		<h1 id="step1">1 - TS Analysis</h1>
+		<p>First of all, we will have a look to the DVB-T stream. To do this job I have used my own program, but you can find in internet some programs with a lot of options and very professionals, for example <a href="http://www.coolstf.com/tsreader/">TSReader</a> or <a href="http://dvbsnoop.sourceforge.net/">DVBSnoop</a>.</p>
+		<h2 id="step11">1.1 - Initial Analysis</h2>
+		<p>Initial Analysis of PIDS:</p>
 		<table>
 		<thead>
-			<th>PID</th><th>Descripción</th><th>Otros</th><th>Nº Paquetes</th><th>Nº Paquetes Iniciales</th>
+			<th>PID</th><th>Description</th><th>More Info</th><th>Packet Number</th><th>Initial Packets Number</th>
 		</thead>
 		<tbody>
 			<tr><td>0000</td><td>PAT</td><td>&nbsp;</td><td>1674</td><td>1674</td></tr>
@@ -61,21 +61,21 @@
 			<tr><td>0405</td><td>Audio</td><td>SID 0002 - ffm! (32C3 CTF)</td><td>9779</td><td>699</td></tr>
 			<tr><td>1FFF</td><td>Empty</td><td>&nbsp;</td><td>805461</td><td>0</td></tr>
 		</table>
-		<p>Descripción:</p>
+		<p>Details:</p>
 		<ul>
-			<li>0000 = PAT: Nos indica que hay dos servicios con identificadores 0001 y 0002 cuyos PMT estan en los PID 0401 y 0403</li>
-			<li>0010 = NIT: Nos indica que los canales pertenecen a la red "32C3 CTF"</li>
-			<li>0011 = SDT: Nos indica que los canales se llaman "rrr!" y "ffm!"</li>
-			<li>0012 = EIT: Nos indica que hay un evento que dura 96 horas, que empieza el 26/12/2015 23:00:00 y que se llama "32. Chaos Communication Congress"</li>
-			<li>0014 = TDT: Nos indica la hora de la transmisión</li>
-			<li>1FFF = Empty, canal con paquetes vacios para completar el bitrate.</li>
+			<li>0000 = PAT: It tells us there are two services with identifiers 0001 and 0002 whose PMT are inside PID 0401 and 0403</li>
+			<li>0010 = NIT: It tells us the services belong to the network "32C3 CTF"</li>
+			<li>0011 = SDT: It tells us the name of the services are "rrr!" and "ffm!"</li>
+			<li>0012 = EIT: It tells us there is an event starting at 26/12/2015 23:00:00 with duration 96 hours and with name "32. Chaos Communication Congress"</li>
+			<li>0014 = TDT: It tells us the hour of the transmision</li>
+			<li>1FFF = Empty, channel with empty packets to fill a higher bitrate.</li>
 			<br>
-			<li>0401 = PMT del SID 0001, nos indica que hay un canal de audio en claro en el PID 0402</li>
-			<li>0402 = Canal de audio en claro (Podemos oir el Never Gonna Give You Up de Rick Astley)</li>
+			<li>0401 = PMT of SID 0001, it tells us that there is a plain audio channel at PID 0402</li>
+			<li>0402 = Plain audio channel (We can hear "Never Gonna Give You Up" of "Rick Astley")</li>
 			<br>
-			<li>0403 = PMT del SID 0002, nos indica que hay un canal de audio cifrado en el PID 0405 con ECMs en el PID 0404</li>
-			<li>0404 = ECMs para descifrar el canal</li>
-			<li>0405 = Canal de audio cifrado</li>
+			<li>0403 = PMT of SID 0002, it tells us that there is an encrypted audio channel at PID 0405 with ECMs at PID 0404</li>
+			<li>0404 = ECMs to decrypt the channel</li>
+			<li>0405 = Encrypted audio channel</li>
 		</ul>
 		
 		<a href="./archive/1.png"><img src="./archive/1.png"></a>
@@ -92,25 +92,25 @@
 		<a href="./archive/ChangeKey.png"><img src="./archive/ChangeKey.png"></a>
 
 
-		<p>En el estandar DVB se utiliza el algoritmo CSA para cifrar los datos de audio y/o video. Generalmente las claves a utilizar con el algoritmo CSA (las llamaremos CW) se actualizan cada pocos segundos y se envían cifradas dentro de las ECMs (salvo en sistemas como BISS en el que se utiliza una clave fija y no se envían ECMs).</p>
+		<p>The DVB standard uses the CSA algorithm to encrypt the audio and/or video packets. The keys to use with the CSA algorithm (aka CW) are updated every few seconds and they are sended encrypted inside the ECMs (except some CA systems like BISS where there aren't ECMS and the CW doesn't change frequently).</p>
 
-		<p>Para el reto, nos centraremos en los PID 0404 y 0405 en los que tenemos el audio cifrado y las ECMs para poder descifrarlo.</p>
+		<p>To resolve the challenge, we will focus on PIDs 0404 and 0405 where we can find the encrypted audio and the ECMs to decrypt it.</p>
 
-		<h2 id="step12">1.2 - Paquetes de Audio (0405)</h2>
-		<p>Siguiendo el estandar DVB, la cabecera de los paquetes TS nos da cierta información. Vemos paquetes cifrados con la CW par y otros con la CW impar. Algunos tienen Adaptation Field y otros no. Además podemos ver en algunos paquetes el flag de inicio de la trama PES.</p>
+		<h2 id="step12">1.2 - Audio Packets (0405)</h2>
+		<p>Following the DVB standard, the header of TS packets gives us usefull information. We can see packets encrypted with even CW and others with od CW. Some have Adaptation Field. And there is a flag to indicate if a packet is the beggiining of a PES packet.</p>
 		<p>Algunos Ejemplos de cabeceras:</p>
 		<ul>
-			<li>474405Fx -> SI Inicial, CW Impar, SI Adaptation Field</li>
-			<li>470405Fx -> NO Inicial, CW Impar, SI Adaptation Field</li> 
-			<li>470405Dx -> NO Inicial, CW Impar, NO Adaptation Field</li>
-			<li>474405Bx -> SI Inicial, CW par, SI Adaptation Field</li>
-			<li>470405Bx -> NO Inicial, CW par, SI Adaptation Field</li>
-			<li>4704059x -> NO Inicial, CW par, NO Adaptation Field</li>
+			<li>474405Fx -> Initial, Odd CW, Adaptation Field</li>
+			<li>470405Fx -> NOT Initial, Odd CW, Adaptation Field</li> 
+			<li>470405Dx -> NOT Initial, Odd CW, NOT Adaptation Field</li>
+			<li>474405Bx -> Initial, Even CW, Adaptation Field</li>
+			<li>470405Bx -> NOT Initial, Even CW, Adaptation Field</li>
+			<li>4704059x -> NOT Initial, Even CW, NOT Adaptation Field</li>
 		</ul>
-		<p>Primer Paquete Inicial Cifrado con clave Impar</p>
+		<p>First Initial Packet encrypted with Odd CW</p>
 		<div class="code">474405F0 075000007B0C7E00   751555EB48033A7D37E375CA57090AFD474970291C8A83153BA8B929F0400596052C312C9892E8A45048BD4A5712F3460DCFE9CC43C8981DAE5C11D40FF5ACC9263D90E247FE42987FB0C64A6D8060923D01FE5780654459AC02DD0537FD40729A0715983A449FC0E6601BD09FE67136D3F06AB88CD2D5F42D9F1572814E7A493EC48941F1E8E8CE94114EEC930F018DD0D4BA92481B6D0CCDA402BC5526810813C6A11FD033AE1EB61C2335F53DE22C
 (Header) (Adaptation Field) (Data)</div>
-		<p>Primer Paquete Inicial Cifrado con clave Par</p>
+		<p>First Initial Packet encrypted with Even CW</p>
 		<div class="code">474405B6 075000015529FE81   C4B8715DA78BA62721415BC995357AC21AEFB341B133B24A03CF1A0011F1D76DDA2687334478AC41EE9F38AE71814C9BD96E3BEA2812F47DC898C078FD6D5CE949EEDDA243A0853CD60C819FB923F2E619879DCD3F4B7CF9132E66C883E03E28020CF910C06ABFF42E76F980A1FF17026D6A77E44B19EDF73A19108ABAF01FF17863A5B9E2C81F1B171B1604FE80CB416F4A154FA4463D34AE1779D9BE0B6CA8A5CE5EF202EB7927CD68AC853D71C8E3
 (Header) (Adaptation Field) (Data)</div>
 
@@ -121,43 +121,43 @@
 80B08AFFFFC30000 01 58E5085774E0E88AB799B07580FF120B127499C15E7BDA6F5A9EDB785FC01C16646A3DB9069C55997C6BE6021486F839DC1C228142A80BF64802112A062385AF5C270BBE642AD786AA4C6496C92E16571A5D2906E0289B7E1E531837DF4ED9DEDC68FC1CA5AE7866CAF653EC949F5A679AD054A388F47DCEA2F4BBCFA83C94B3 93B95743
 ...</div>
 
-		<p>Vemos que las ECMs están formadas por</p>
+		<p>We can see that the ECMs consist of:</p>
 		<ul>
-			<li>Una cabecera (8 bytes). Siempre igual 80B08AFFFFC30000. Extrañamente su byte inicial no cambia entre 80 y 81 para marcar el cambio de ECM/CW</li>
-			<li>Un flag (1 byte) que alterna entre 00 y 01. Ya que la cabecera no cambia ¿Será para indicar la CW a actualizar? Luego lo veremos...</li>
-			<li>Datos aparenemtente cifrados (0x80 bytes)</li>
+			<li>Header(8 bytes). Always the same 80B08AFFFFC30000. Curiously, the first byte doesn't change between 80 and 81 to indicate the change of ECM/CW</li>
+			<li>A flag (1 byte) that toggles between 00 and 01. ¿Will this flag show us what CW is inside the ECM? Later, we will see...</li>
+			<li>Data (0x80 bytes). Apparently encrypted </li>
 			<li>CRC? (4 bytes)</li>
 		</ul>
 
 
-		<h1 id="step2">2 - Analisis del firmware de la tarjeta</h1>
-		<p>El consejo nos muestra una foto de una tarjeta Funcard 4. Buscando información sobre esta tarjeta rápidamente encontraremos que tiene un procesador AT90S8515 y una eeprom AT24C256. Suficiente para comenzar a desensamblar y ver como funciona.</p>
-		<p>Nota: Sin el consejo, también deberíamos ser capaces de reconocer el procesador. Mirando el comienzo del firmware podemos ver xxC0xxC0xxC0xxC0 (13 veces xxC0). Parece una tabla con 13 saltos (una tabla de vectores de interrupción). Asi que, ¿que procesadores de los habitualmente usados en smartcards tiene la tabla de vectores en la posición 0000? ST...no, SLE...no, Texas... no, Motorola... no, ATMEL...si!! Podemos probar a desensamblar usando cualquier AVR y confirmar que funciona.</p>
+		<h1 id="step2">2 - Card Firmware Analysis</h1>
+		<p>The hint shows us a picture of a Funcard 4 card. Looking in internet this card we will quickly see that it has an AT90S8515 processor and an AT24C256 eeprom . It is enough to start to disassemble and see how it works.</p>
+		<p>Note: Without the hint we also should be able to recognize the processor. Looking at the beggining of the firmware we can see xxC0xxC0xxC0xxC0 (13 times xxC0). It seems a table with 13 jumps (a vector table). So, what processor used in smartcards have the interrupt vector table from address 0? ST...no, SLE...no, Texas... no, Motorola... no, ATMEL...yes!! We can try to dissasemble using the AVR asm and confirm that it works.</p>
 		<p><a href="http://www.atmel.com/images/doc0841.pdf">Datasheet AT90S8515</a></p>
-		
-		<h2 id="step21">2.1 - Formato ECM</h2>
-		<p>Analizando el desensamblado veremos que el formato de las ECMs debe ser el siguiente:</p>
+				
+		<h2 id="step21">2.1 - ECM Format</h2>
+		<p>Analyzing the disassemble we will see the format of ECMs must be like this:</p>
 		<div class="code">DD A2 00 00 F0  14 8E FE XX XX XX XX XX XX XX XX YY DATA...(0x80)...DATA ZZ ZZ ZZ ZZ</div>
 
-		<p>Cabecera:</p>
+		<p>Header:</p>
 		<ul>
-			<li>CLA = Debe ser DD</li>
-			<li>INS = Para las ECMs será el A2 (Otros comandos en la tarjeta son 84, 26/C6, 82 y CA)</li>
-			<li>P1 = Debe ser 00</li>
-			<li>P2 = Debe ser 00</li>
-			<li>LEN = Longitud del Cuerpo (en las ECMs debe ser > 3 y debería ser = F0)</li>
+			<li>CLA = It must be DD</li>
+			<li>INS = For ECMs it will be A2 (More commands inside the card are 84, 26/C6, 82 and CA)</li>
+			<li>P1 = It must be 00</li>
+			<li>P2 = It must be 00</li>
+			<li>LEN = Lenght of Body (In ECMs it must be > 3 and it should be F0)</li>
 		</ul>
-		<p>Cuerpo:</p>
+		<p>Body:</p>
 		<ul>
-			<li>14 = Byte fijo</li>
-			<li>Longitud = Debe ser 8E y debe ser igual a LEN-2</li>
-			<li>FE = Byte fijo</li>
-			<li>8 bytes = ? No usados</li>
-			<li>1 byte = Flag Par/Impar</li>
-			<li>0x80 bytes = Datos cifrados</li>
-			<li>4 bytes = CRC? No usados</li>
+			<li>14 = Fixed Byte</li>
+			<li>Lenght = It must be 8E and equal to LEN-2</li>
+			<li>FE = Fixed Byte</li>
+			<li>8 bytes = ? Not used</li>
+			<li>1 byte = Flag to update Even CW or Odd CW</li>
+			<li>0x80 bytes = Encrypted Data</li>
+			<li>4 bytes = CRC? Not used</li>
 		</ul>
-<p>Desensamblado:<p>
+<p>Disassembled:<p>
 <div class="code dis">ROM:02FC _cmdA2_ECM:                             ; CODE XREF: Main_Function:cmdA2
 ROM:02FC                 lds     r24, header4_LEN
 ROM:02FE                 cpi     r24, 3
@@ -252,16 +252,16 @@ ROM:0344                 rcall   sendACK_COM
 ROM:0345                 rcall   readByte        ; ZZ
 ROM:0346                 rcall   sendACK_COM
 ROM:0347                 rcall   readByte        ; ZZ</div>	
-<p>Descargar desensamblado completo: <a href="./archive/firmware.lst">firmware.lst</a></p>
+<p>Download the complete disassembled: <a href="./archive/firmware.lst">firmware.lst</a></p>
 			
-		<h2 id="step22">2.2 - Procesado CW</h2>
-		<p>Una vez recibida la ECM la tarjeta calcula la CW de la siguiente forma:</p>
+		<h2 id="step22">2.2 - CW Calculation</h2>
+		<p>After receive the ECM, the card computes the CW doing these steps:</p>
 		<ol>
-			<li>Se comienza con un seed conocido de 16 bytes (valores del 00 al 0F)</li>
-			<li>Se realizan 0x100 permutaciones en este seed de acuerdo a los 0x80 bytes de la ECM (Conocidos) y a los 0x80 bytes de la eeprom (Desconocidos)</li>
-			<li>Con los 8 primeros bytes del seed resultante y los bytes de la ECM se calcula la CW.</li>
+			<li>It starts with a known seed with lenght 16 bytes (numbers from 00 to 0F)</li>
+			<li>It makes 0x100 permutations of this seed according to the 0x80 bytes of ECM (known values) and the 0x80 bytes of eeprom (unknown bytes)</li>
+			<li>With the first 8 bytes of the seed and the 0x80 ECM bytes, the card calculates the CW.</li>
 		</ol>
-		<p>Desensamblado:<p>
+		<p>Disassembled:<p>
 		<div class="code dis">ROM:0330                 rcall   readByte        ; YY (odd/even flag)
 ROM:0331                 mov     r14, r24
 ROM:0332                 ldi     r16, 0x76
@@ -417,9 +417,9 @@ ROM:03BA                 cpc     r17, r1
 ROM:03BB                 breq    endCW
 ROM:03BC                 mov     r7, r24         ; r7 = checksum
 ROM:03BD                 rjmp    loopGenerateCW</div>
-<p>Descargar desensamblado completo: <a href="./archive/firmware.lst">firmware.lst</a></p>
+<p>Download the complete disassembled: <a href="./archive/firmware.lst">firmware.lst</a></p>
 		
-		<p>Código C#:</p> 
+		<p>C# Code:</p> 
 		<div class="code">byte[] buffer = new byte[0x100];
 for (int i = 0; i < 0x80; i++) buffer[i] = ecmdata[i];     //Known
 for (int i = 0; i < 0x80; i++) buffer[i + 0x80] = eepromData[i];     //Unknown
@@ -446,32 +446,32 @@ for (int i = 0; i < 8; i++)
       cw[i] = (byte)(cw[i - 1] + cw[i - 2] + cw[i - 3]);
    }
 }</div>
+		<br>
+		<h2 id="step23">2.3 - Weaknesses Analysis</h2>
+		<p>In the algorithm used we can find 3 weaknesses. These weaknesses will let us decrypt the stream without know the eeprom data.</p>
 
-		<h2 id="step23">2.3 - Analisis Debilidades</h2>
-		<p>En este algoritmo podemos encontrar 3 debilidades que nos permitirán descifrar el stream sin conocer los datos de la eeprom de la tarjeta.</p>
-
-		<h3>1º Vulnerabilidad</h3>
-		<p>Para calcular una clave de 48 bits (+16 de checksums) está utilizando un seed de menor complejidad. En este caso 8 bytes de un grupo de 16 bytes conocidos, esto nos da</p>
+		<h3>Weakness #1</h3>
+		<p>To compute a key of 48 bits (+16 checksum bits), it is using a smaller seed (less complex). In this example, 8 bytes of a group of 16 known bytes, it is...</p>
 		<div class="code">16!
---- = 16*15*14*13*12*11*10*9 = 518.918.400 = 0x1EEE1100 posibilidades
+--- = 16*15*14*13*12*11*10*9 = 518.918.400 = 0x1EEE1100 posibilities
 8!</div>
-<p><b>Es una cantidad razonable para realizar bruteforce</b></p>
-		<h3>2º Vulnerabilidad</h3>
-		<p>Aunque la longitud de los datos de eeprom (clave desconocida) son 0x80 bytes. El algoritmo utilizado hace que tenga una complejidad equivalente a 8 bytes. Ya que permutar muchas veces los mismos datos no tiene sentido y lo único que importa es la posición final que se puede conseguir con tan solo 8 permutaciones.</p>
+<p><b>This is a reasonable number to bruteforce</b></p>
+		<h3>Weakness #2</h3>
+		<p>Although the lenght of the eeprom data (unkown key) is 0x80 bytes. The algorithm used gives a equivalent complexity to 8 bytes. Because, mix the data a lot of times is unuseful, the only important thing is the final positions, and we can obtain the same positions, doing only 8 permutations.</p>
 
-		<h3>3ª Vulnerabilidad</h3>
-		<p>El algoritmo utilizado nos permite deducir la clave a partir de una CW. Haciendo bruteforce a una CW podremos calcular un contenido de eeprom válido para cualquier ECM.</p>
+		<h3>Weakness #3</h3>
+		<p>The algorithm used lets us to obtain the eeprom data knowing a CW. Bruteforcing one CW, we will can compute a eeprom data valid to decrypt all the ECMs.</p>
 
-		<h1 id="step3">3 - Descifrando el stream</h1>
+		<h1 id="step3">3 - Decrypt the stream</h1>
 		<h2 id="step31">3.1 - Bruteforce</h2>
-		<p><b>1 - </b>Cogemos la Primera ECM</p>
+		<p><b>1 - </b>We get the first ECM</p>
 		<div class="code">80B0 8A FFFFC30000 00 0C9B810F65AAF0A936640B97F4FCAA0A91D43EE512CF4481BB02E377CBC39FCF4651207D4628FE3046E8ACDBF8BFF0FE18E2AC81943E9CE5E8814198497A6B0252DC04A06DFDA77A4FBBFC7E9D3DAA8A23DFD06E529D200AF56DE63421BED5BEB74B80BE4AA3C8D7F0C98B525B2552AD341C431985709C60B4C704200DF0D08E 227EE00D</div>
 		<br>
-		<p><b>2 - </b>Es una ECM Par (el byte 8 es 00) asi que buscamos el primer inicio de audio cifrado con CW Par</p>
+		<p><b>2 - </b>It is an "Even" ECM (the 8th byte is 00), so we search the first "initial" audio packet encrypted with the even CW.</p>
 		<div class="code">474405B6 075000015529FE81 C4B8715DA78BA62721415BC995357AC21AEFB341B133B24A03CF1A0011F1D76DDA2687334478AC41EE9F38AE71814C9BD96E3BEA2812F47DC898C078FD6D5CE949EEDDA243A0853CD60C819FB923F2E619879DCD3F4B7CF9132E66C883E03E28020CF910C06ABFF42E76F980A1FF17026D6A77E44B19EDF73A19108ABAF01FF17863A5B9E2C81F1B171B1604FE80CB416F4A154FA4463D34AE1779D9BE0B6CA8A5CE5EF202EB7927CD68AC853D71C8E3</div>
-		</p>Por ser un inicio de una trama PES sabemos que los primeros bytes de de este paquete descifrado debe ser 00 00 01 C0 (mirando los paquetes de audio en claro del canal del PID 0401 podemos confirmar esto)... asi que ya tenemos lo necesario para realizar un bruteforce.</p>
+		</p>Because this packet is the first of a PES packet, we know that the 4 first bytes of this packet decrypted will be 00 00 01 C0 (looking the plain audio packets of PID 0401 we can confirm it)... so, we already have all the needed information to make bruteforce.</p>
 		<br>		
-		<p><b>3 - </b>Hacemos bruteforce del seed utilizando la primera ecm y el paquete de audio</p>
+		<p><b>3 - </b>Bruteforce the seed using the first ECM and the audio packet</p>
 		<div class="code">byte[] encrypted_audio = {0xC4, 0xB8, 0x71, 0x5D, 0xA7, 0x8B, 0xA6, 0x27, 0x21, 0x41, 0x5B, 0xC9 }; //The first 12 bytes are enough to decrypt 4 bytes
 byte[] ecmdata = {0x0C, 0x9B, 0x81, 0x0F, 0x65, 0xAA, 0xF0, 0xA9, 0x36, 0x64, 0x0B, 0x97, 0xF4, 0xFC, 0xAA, 0x0A, 0x91, 0xD4, 0x3E, 0xE5, 0x12, 0xCF, 0x44, 0x81, 0xBB, 0x02, 0xE3, 0x77, 0xCB, 0xC3, 0x9F, 0xCF, 0x46, 0x51, 0x20, 0x7D, 0x46, 0x28, 0xFE, 0x30, 0x46, 0xE8, 0xAC, 0xDB, 0xF8, 0xBF, 0xF0, 0xFE, 0x18, 0xE2, 0xAC, 0x81, 0x94, 0x3E, 0x9C, 0xE5, 0xE8, 0x81, 0x41, 0x98, 0x49, 0x7A, 0x6B, 0x02, 0x52, 0xDC, 0x04, 0xA0, 0x6D, 0xFD, 0xA7, 0x7A, 0x4F, 0xBB, 0xFC, 0x7E, 0x9D, 0x3D, 0xAA, 0x8A, 0x23, 0xDF, 0xD0, 0x6E, 0x52, 0x9D, 0x20, 0x0A, 0xF5, 0x6D, 0xE6, 0x34, 0x21, 0xBE, 0xD5, 0xBE, 0xB7, 0x4B, 0x80, 0xBE, 0x4A, 0xA3, 0xC8, 0xD7, 0xF0, 0xC9, 0x8B, 0x52, 0x5B, 0x25, 0x52, 0xAD, 0x34, 0x1C, 0x43, 0x19, 0x85, 0x70, 0x9C, 0x60, 0xB4, 0xC7, 0x04, 0x20, 0x0D, 0xF0, 0xD0, 0x8E};
 byte[] decrypted_audio = new byte[4]; 
@@ -517,7 +517,7 @@ for (byte b1 = 0; b1 < 0x10; b1++)
                         CSA.decryptsoft(cw, encrypted_audio, decrypted_audio);   //It's a standard CSA decryption but limited to first 4 bytes instead of the complete packet, to speed up the bruteforce
                         if ((res[0] == 0x00) && (res[1] == 0x00) && (res[2] == 0x01))
                         {
-                           tresul.Text = "Bingo! CW=" + bytetostring(cw) + " Seed= " + bytetostring(seed) + " Audio=" + bytetostring(res);
+                           tresul.Text = "Hit! CW=" + bytetostring(cw) + " Seed= " + bytetostring(seed) + " Audio=" + bytetostring(res);
                            return;
                         }
                      }
@@ -528,14 +528,14 @@ for (byte b1 = 0; b1 < 0x10; b1++)
       }
    }
 }</div>		
-		<p>	Y tras unos minutos... <b>Bingo! CW=836219FE3C242989 Seed=02050607080B0C0F Audio=000001C0</b></p>
+		<p>And, after few minutes... <b>Hit! CW=836219FE3C242989 Seed=02050607080B0C0F Audio=000001C0</b></p>
 		<br>
-		<p><b>4 - </b>Comprobamos que efectivamente la CW funciona y descifra el paquete completo</p>
+		<p><b>4 - </b>We check that the CW works and it can decrypt the entire audio packet</p>
 		<div class="code">000001C009D48080052100137109FFF5C2C4FFFFFFFFFFFFFFFFFFF52D35D4FDD556CA4A4BA8D55450FBB0BAFD775D7616E97577553494596D96D75D77DD6E195F85EB56E587AB9CCDC8056DE4FFA2A5B82C3D5A9ECF6989642CA21F195E132CDAEAC91BE01E80D7E955DB28E60910CF32AA697E029C957665BEA7D7D445AA0F4D22DF156D8F547DBCB396CE314F24F4DD069DB485CA66D18B1260F40DE7F569BDB13A8741DBEF41450B92A7636C5AB5</div>
 		<br>
-		<h2 id="step32">3.2 - Crear EEprom equivalente</h2>
-		<p><b>5 - </b>Sabemos el Seed resultante, asique podemos calcular una funcion equivalente a todas los intercambios que provocan los bytes de EEPROM	</p>
-				<p>A-Calculamos el Seed tras las permutaciones producidos por el byte de la ECM</p>
+		<h2 id="step32">3.2 - Creating equivalent EEprom</h2>
+		<p><b>5 - </b>We already knwon the seed after the data mixing, so we can compute a equivalent mixing to the 0x80 permutations of eeprom data</p>
+				<p>A-Compute the Seed after the 0x80 permutations with ECM bytes</p>
 				<div class="code">byte[] buffer = {0x0C, 0x9B, 0x81, 0x0F, 0x65, 0xAA, 0xF0, 0xA9, 0x36, 0x64, 0x0B, 0x97, 0xF4, 0xFC, 0xAA, 0x0A, 0x91, 0xD4, 0x3E, 0xE5, 0x12, 0xCF, 0x44, 0x81, 0xBB, 0x02, 0xE3, 0x77, 0xCB, 0xC3, 0x9F, 0xCF, 0x46, 0x51, 0x20, 0x7D, 0x46, 0x28, 0xFE, 0x30, 0x46, 0xE8, 0xAC, 0xDB, 0xF8, 0xBF, 0xF0, 0xFE, 0x18, 0xE2, 0xAC, 0x81, 0x94, 0x3E, 0x9C, 0xE5, 0xE8, 0x81, 0x41, 0x98, 0x49, 0x7A, 0x6B, 0x02, 0x52, 0xDC, 0x04, 0xA0, 0x6D, 0xFD, 0xA7, 0x7A, 0x4F, 0xBB, 0xFC, 0x7E, 0x9D, 0x3D, 0xAA, 0x8A, 0x23, 0xDF, 0xD0, 0x6E, 0x52, 0x9D, 0x20, 0x0A, 0xF5, 0x6D, 0xE6, 0x34, 0x21, 0xBE, 0xD5, 0xBE, 0xB7, 0x4B, 0x80, 0xBE, 0x4A, 0xA3, 0xC8, 0xD7, 0xF0, 0xC9, 0x8B, 0x52, 0x5B, 0x25, 0x52, 0xAD, 0x34, 0x1C, 0x43, 0x19, 0x85, 0x70, 0x9C, 0x60, 0xB4, 0xC7, 0x04, 0x20, 0x0D, 0xF0, 0xD0, 0x8E};
 byte[] seed = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F}
 for (int i = 0; i < 0x80; i++)
@@ -546,31 +546,31 @@ for (int i = 0; i < 0x80; i++)
    seed[a] = seed[b];
    seed[b] = tmp;
 }
-tresul.Text = "Seed después de las permutaciones de la ECM: " + bytetostring(seed);</div>	
+tresul.Text = "Seed after mixing with ECM bytes: " + bytetostring(seed);</div>	
 
-		<p>-> <b>Seed después de las permutaciones de la ECM: 0908030E0407020F0B000D0A01050C06</b></p>
-		<p>B-Vemos los 8 cambios equivalentes a los 0x80 de los bytes de EEPROM</p>
+		<p>-> <b>Seed after mixing with ECM bytes: 0908030E0407020F0B000D0A01050C06</b></p>
+		<p>B-Comparing this result with the final seed obtained with the bruteforce, we can see the 8 equivalet permutations to the eeprom data</p>
 		<ul>	
-		<li> 1ºByte va a la posicion ??</li>
-		<li> 2ºByte va a la posicion <b>04</b></li>
-		<li> 3ºByte va a la posicion ??</li>
-		<li> 4ºByte va a la posicion ??</li>
-		<li> 5ºByte va a la posicion ??</li>
-		<li> 6ºByte va a la posicion <b>03</b></li>
-		<li> 7ºByte va a la posicion <b>00</b></li>
-		<li> 8ºByte va a la posicion <b>07</b></li>
-		<li> 9ºByte va a la posicion <b>05</b></li>
-		<li>10ºByte va a la posicion ??</li>
-		<li>11ºByte va a la posicion ??</li>
-		<li>12ºByte va a la posicion ??</li>
-		<li>13ºByte va a la posicion ??</li>
-		<li>14ºByte va a la posicion <b>01</b></li>
-		<li>15ºByte va a la posicion <b>06</b></li>
-		<li>16ºByte va a la posicion <b>02</b></li>
+		<li> 1ºByte goes to position ??</li>
+		<li> 2ºByte goes to position <b>04</b></li>
+		<li> 3ºByte goes to position ??</li>
+		<li> 4ºByte goes to position ??</li>
+		<li> 5ºByte goes to position ??</li>
+		<li> 6ºByte goes to position <b>03</b></li>
+		<li> 7ºByte goes to position <b>00</b></li>
+		<li> 8ºByte goes to position <b>07</b></li>
+		<li> 9ºByte goes to position <b>05</b></li>
+		<li>10ºByte goes to position ??</li>
+		<li>11ºByte goes to position ??</li>
+		<li>12ºByte goes to position ??</li>
+		<li>13ºByte goes to position ??</li>
+		<li>14ºByte goes to position <b>01</b></li>
+		<li>15ºByte goes to position <b>06</b></li>
+		<li>16ºByte goes to position <b>02</b></li>
 		</ul>	
 		<p>byte[] equivalentMixingEEP = {6, 13, 15, 5, 1, 8, 14, 7};</p>
 				
-		<p><b>6 - </b>Probamos a calcular la CW sin BruteForce</p>
+		<p><b>6 - </b>Test to get the CW without use BruteForce</p>
 		<div class="code">byte[] buffer = {0x0C, 0x9B, 0x81, 0x0F, 0x65, 0xAA, 0xF0, 0xA9, 0x36, 0x64, 0x0B, 0x97, 0xF4, 0xFC, 0xAA, 0x0A, 0x91, 0xD4, 0x3E, 0xE5, 0x12, 0xCF, 0x44, 0x81, 0xBB, 0x02, 0xE3, 0x77, 0xCB, 0xC3, 0x9F, 0xCF, 0x46, 0x51, 0x20, 0x7D, 0x46, 0x28, 0xFE, 0x30, 0x46, 0xE8, 0xAC, 0xDB, 0xF8, 0xBF, 0xF0, 0xFE, 0x18, 0xE2, 0xAC, 0x81, 0x94, 0x3E, 0x9C, 0xE5, 0xE8, 0x81, 0x41, 0x98, 0x49, 0x7A, 0x6B, 0x02, 0x52, 0xDC, 0x04, 0xA0, 0x6D, 0xFD, 0xA7, 0x7A, 0x4F, 0xBB, 0xFC, 0x7E, 0x9D, 0x3D, 0xAA, 0x8A, 0x23, 0xDF, 0xD0, 0x6E, 0x52, 0x9D, 0x20, 0x0A, 0xF5, 0x6D, 0xE6, 0x34, 0x21, 0xBE, 0xD5, 0xBE, 0xB7, 0x4B, 0x80, 0xBE, 0x4A, 0xA3, 0xC8, 0xD7, 0xF0, 0xC9, 0x8B, 0x52, 0x5B, 0x25, 0x52, 0xAD, 0x34, 0x1C, 0x43, 0x19, 0x85, 0x70, 0x9C, 0x60, 0xB4, 0xC7, 0x04, 0x20, 0x0D, 0xF0, 0xD0, 0x8E};
 byte[] seed = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F}
 for (int i = 0; i < 0x80; i++)
@@ -604,8 +604,8 @@ tresul.Text = "CW: " + bytetostring(cw);</div>
 					
 		<p>-> <b>CW: 836219FE3C242989</b></p>
 		
-		<h2 id="step33">3.3 - Descifrar Audio</h2>
-		<p><b>6 - </b>Sabiendo descifrar la ECM... podemos hacer una emu completa y descifrar el audio :)</p>
+		<h2 id="step33">3.3 - Decrypting Audio</h2>
+		<p><b>6 - </b>Knowing how to decrypt the ECMs, we can prepare a complete emu and decrypt the audio :)</p>
 		<div class="code">private byte[] decryptECM(byte[] buffer)
 {
    byte[] seed = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F}
@@ -710,10 +710,10 @@ private void decryptTS()
    writer.Close();
    stream.Close();
 }</div>
-
+	<br>
 	<h2 id="step34">3.4 - Flag</h2>
-	<p><b>7 - </b>Podemos escuchar el fichero audio_decrypted.mpa:</p>
-	<p>Descargar audio <a href="./archive/audio_decrypted.zip">audio_decrypted.zip</a></p>
+	<p><b>7 - </b>We can listen the file audio_decrypted.mpa:</p>
+	<p>Download audio <a href="./archive/audio_decrypted.zip">audio_decrypted.zip</a></p>
 	<p>Congratulations, the flag is <b>32C3_youre_listening_to_flagfm_radio</b></p>
 	
 	</div>
