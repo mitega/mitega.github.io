@@ -12,8 +12,26 @@ body {
 
 .container {
   width: 90%;
-  max-width: 600px;
+  max-width: 900px;
   margin: 0 auto;
+}
+
+div.code {
+	white-space: pre;
+	font-family: 'Courier New';
+	font-size: 14px;
+	background: #DDD;
+	border: 1px solid #777;
+	width: 100%;
+	overflow:auto;
+	max-height: 800px;
+}
+div.dis {
+	max-height: 300px !important;
+}
+img {
+	width: 240px; 
+	height: 150px;
 }
 
 section {
