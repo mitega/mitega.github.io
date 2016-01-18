@@ -12,14 +12,14 @@
 		<h1>&Iacute;ndice</h1>
 		<p>
 		<a href="#step0">0 - Introducci&oacute;n</a>
-		<br><a href="#step1">1 - Analisis del Log TS</a>
-		<br>&nbsp;&nbsp;&nbsp;<a href="#step11">1.1 - Analisis Inicial</a>
+		<br><a href="#step1">1 - An&aacute;lisis del Log TS</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step11">1.1 - An&aacute;lisis Inicial</a>
 		<br>&nbsp;&nbsp;&nbsp;<a href="#step12">1.2 - Paquetes de Audio</a>
 		<br>&nbsp;&nbsp;&nbsp;<a href="#step13">1.3 - ECMs</a>
-		<br><a href="#step2">2 - Analisis del firmware de la tarjeta</a>
+		<br><a href="#step2">2 - An&aacute;lisis del firmware de la tarjeta</a>
 		<br>&nbsp;&nbsp;&nbsp;<a href="#step21">2.1 - Formato ECM</a>
 		<br>&nbsp;&nbsp;&nbsp;<a href="#step22">2.2 - Procesado CW</a>
-		<br>&nbsp;&nbsp;&nbsp;<a href="#step23">2.3 - Analisis Debilidades</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step23">2.3 - An&aacute;lisis Debilidades</a>
 		<br><a href="#step3">3 - Descifrando el stream</a>
 		<br>&nbsp;&nbsp;&nbsp;<a href="#step31">3.1 - Bruteforce</a>
 		<br>&nbsp;&nbsp;&nbsp;<a href="#step32">3.2 - Crear EEprom equivalente</a>
@@ -40,10 +40,10 @@
 		</p>
 		<p>Vamos a ello...</p>
 			
-		<h1 id="step1">1 - Analisis del Log TS</h1>
+		<h1 id="step1">1 - An&aacute;lisis del Log TS</h1>
 		<p>Lo primero vamos a analizar el stream DVB-T. Para ello yo he utilizado un programa propio, pero se pueden encontrar por internet varios con muchas opciones y m&aacute;s profesionales, por ejemplo el <a href="http://www.coolstf.com/tsreader/">TSReader</a> o el <a href="http://dvbsnoop.sourceforge.net/">DVBSnoop</a>..</p>
-		<h2 id="step11">1.1 - Analisis Inicial</h2>
-		<p>Analisis Incial de Paquetes:</p>
+		<h2 id="step11">1.1 - An&aacute;lisis Inicial</h2>
+		<p>An&aacute;lisis Incial de Paquetes:</p>
 		<table>
 		<thead>
 			<th>PID</th><th>Descripci&oacute;n</th><th>Otros</th><th>N&deg; Paquetes</th><th>N&deg; Paquetes Iniciales</th>
@@ -130,7 +130,7 @@
 		</ul>
 
 
-		<h1 id="step2">2 - Analisis del firmware de la tarjeta</h1>
+		<h1 id="step2">2 - An&aacute;lisis del firmware de la tarjeta</h1>
 		<p>El consejo nos muestra una foto de una tarjeta Funcard 4. Buscando informaci&oacute;n sobre esta tarjeta r&aacute;pidamente encontraremos que tiene un procesador AT90S8515 y una eeprom AT24C256. Suficiente para comenzar a desensamblar y ver como funciona.</p>
 		<p>Nota: Sin el consejo, tambi&eacute;n deber&iacute;amos ser capaces de reconocer el procesador. Mirando el comienzo del firmware podemos ver xxC0xxC0xxC0xxC0 (13 veces xxC0). Parece una tabla con 13 saltos (una tabla de vectores de interrupci&oacute;n). Asi que, ¿que procesadores de los habitualmente usados en smartcards tiene la tabla de vectores en la posici&oacute;n 0000? ST...no, SLE...no, Texas... no, Motorola... no, ATMEL...si!! Podemos probar a desensamblar usando cualquier AVR y confirmar que funciona.</p>
 		<p><a href="http://www.atmel.com/images/doc0841.pdf">Datasheet AT90S8515</a></p>
@@ -447,7 +447,7 @@ for (int i = 0; i < 8; i++)
    }
 }</div>
 
-		<h2 id="step23">2.3 - Analisis Debilidades</h2>
+		<h2 id="step23">2.3 - An&aacute;lisis Debilidades</h2>
 		<p>En este algoritmo podemos encontrar 3 debilidades que nos permitir&aacute;n descifrar el stream sin conocer los datos de la eeprom de la tarjeta.</p>
 
 		<h3>1&deg; Vulnerabilidad</h3>
