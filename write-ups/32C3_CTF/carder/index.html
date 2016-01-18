@@ -1,0 +1,772 @@
+<html>
+<head>
+	<title>Write-up: 32C3 CTF - Carder</title>
+	<style>
+		#contenido {			
+			width: 980px;
+			border: 1px solid #ddd;
+			padding: 45px;
+			font-family: Helvetica;
+			font-size: 16px;
+			color: #777;
+		}
+		h1 {
+			color: #000;
+			font-size: 24px;
+			text-decoration: underline;
+		}
+		h2 {
+			font-size: 20px;
+			text-decoration: underline;
+		}
+		h3 {
+			font-size: 16px;
+			text-decoration: underline;
+		}
+		table {
+			border-collapse: collapse;
+			color: #777;
+			margin-left: 40px;
+		}
+		th {
+			border: 1px solid #777;
+			padding: 2px 5px;
+			font-weight: bold;
+		}
+		td {
+			border: 1px solid #777;
+			padding: 2px 5px;
+			text-align: right;
+		}
+		div.code {
+			white-space: pre;
+			font-family: 'Courier New';
+			font-size: 14px;
+			background: #DDD;
+			border: 1px solid #777;
+			width: 100%;
+			overflow:auto;
+			max-height: 800px;
+		}
+		div.dis {
+			max-height: 300px !important;
+		}
+		img {
+			width: 240px; 
+			height: 150px;
+		}
+	</style>
+</head>
+<body>
+	<div id="contenido">
+		<h1>Index</h1>
+		<p>
+		<a href="#step0">0 - Introduction</a>
+		<br><a href="#step1">1 - Log TS Analysis</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step11">1.1 - Initial Analysis</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step12">1.2 - Audio Packets</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step13">1.3 - ECMs</a>
+		<br><a href="#step2">2 - Card Firmware Analysis</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step21">2.1 - ECM Format</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step22">2.2 - CW Calculation</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step23">2.3 - Weaknesses Analysis</a>
+		<br><a href="#step3">3 - Decrypt the stream</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step31">3.1 - Bruteforce</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step32">3.2 - Creating equivalent EEprom</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step33">3.3 - Decrypting Audio</a>
+		<br>&nbsp;&nbsp;&nbsp;<a href="#step34">3.4 - Flag</a>
+		</p>
+			
+		
+		<h1 id="step0">0 - Introduction</h1>
+		<p>Link to the challenge: <a href="https://github.com/ctfs/write-ups-2015/tree/master/32c3-ctf-2015/reversing/carder-500">32C3 CTF 2015: carder-500</a></p>
+		<p>This challenge tells us we have to decrypt a DVB-T stream to obtain the "flag" and they give us a .ts file and a firmware of a card. There is also a hint, a picture of a card with the text "Fun4" over the chip.</p>
+		<p>To resolve it, I have used some own tools that I have prepared along the years and the C# language, but you can use other tools and the programing language that you prefer.</p>
+		<p>Besides ASM knownledge, it will be very usefull have basic knownledge about DVB and DVB-CA standards, I recommend take a look to this documentation:<br>
+			<a href="https://en.wikipedia.org/wiki/MPEG_transport_stream">https://en.wikipedia.org/wiki/MPEG_transport_stream</a><br>
+			<a href="https://en.wikipedia.org/wiki/Conditional_access">https://en.wikipedia.org/wiki/Conditional_access</a><br>
+			<a href="https://en.wikipedia.org/wiki/Common_Scrambling_Algorithm">https://en.wikipedia.org/wiki/Common_Scrambling_Algorithm</a><br>
+			<a href="https://www.dvb.org/resources/public/standards/a38_dvb-si_specification.pdf">https://www.dvb.org/resources/public/standards/a38_dvb-si_specification.pdf</a>
+		</p>
+		<p>Let's go...</p>
+			
+		<h1 id="step1">1 - Log TS Analysis</h1>
+		<p>First of all, we will have a look to the DVB-T stream. To do this job I have used my own program, but you can find in internet some programs with a lot of options and very professionals, for example <a href="http://www.coolstf.com/tsreader/">TSReader</a> or <a href="http://dvbsnoop.sourceforge.net/">DVBSnoop</a>.</p>
+		<h2 id="step11">1.1 - Initial Analysis</h2>
+		<p>Initial Analysis of PIDS:</p>
+		<table>
+		<thead>
+			<th>PID</th><th>Description</th><th>More Info</th><th>Packet Number</th><th>Initial Packets Number</th>
+		</thead>
+		<tbody>
+			<tr><td>0000</td><td>PAT</td><td>&nbsp;</td><td>1674</td><td>1674</td></tr>
+			<tr><td>0010</td><td>NIT</td><td>&nbsp;</td><td>3347</td><td>3347</td></tr>
+			<tr><td>0011</td><td>SDT</td><td>&nbsp;</td><td>2510</td><td>2510</td></tr>
+			<tr><td>0012</td><td>EIT</td><td>&nbsp;</td><td>1674</td><td>1674</td></tr>
+			<tr><td>0014</td><td>TDT</td><td>&nbsp;</td><td>105</td><td>105</td></tr>
+			<tr><td>0401</td><td>PMT</td><td>SID 0001 - rrr! (32C3 CTF)</td><td>837</td><td>837</td></tr>
+			<tr><td>0402</td><td>Audio</td><td>SID 0001 - rrr! (32C3 CTF)</td><td>9779</td><td>700</td></tr>
+			<tr><td>0403</td><td>PMT</td><td>SID 0002 - ffm! (32C3 CTF)</td><td>837</td><td>837</td></tr>
+			<tr><td>0404</td><td>ECM (0B00)</td><td>SID 0002 - ffm! (32C3 CTF)</td><td>626</td><td>626</td></tr>
+			<tr><td>0405</td><td>Audio</td><td>SID 0002 - ffm! (32C3 CTF)</td><td>9779</td><td>699</td></tr>
+			<tr><td>1FFF</td><td>Empty</td><td>&nbsp;</td><td>805461</td><td>0</td></tr>
+		</table>
+		<p>Details:</p>
+		<ul>
+			<li>0000 = PAT: It tells us there are two services with identifiers 0001 and 0002 whose PMT are inside PID 0401 and 0403</li>
+			<li>0010 = NIT: It tells us the services belong to the network "32C3 CTF"</li>
+			<li>0011 = SDT: It tells us the name of the services are "rrr!" and "ffm!"</li>
+			<li>0012 = EIT: It tells us there is an event starting at 26/12/2015 23:00:00 with duration 96 hours and with name "32. Chaos Communication Congress"</li>
+			<li>0014 = TDT: It tells us the hour of the transmision</li>
+			<li>1FFF = Empty, channel with empty packets to fill a higher bitrate.</li>
+			<br>
+			<li>0401 = PMT of SID 0001, it tells us that there is a plain audio channel at PID 0402</li>
+			<li>0402 = Plain audio channel (We can hear "Never Gonna Give You Up" of "Rick Astley")</li>
+			<br>
+			<li>0403 = PMT of SID 0002, it tells us that there is an encrypted audio channel at PID 0405 with ECMs at PID 0404</li>
+			<li>0404 = ECMs to decrypt the channel</li>
+			<li>0405 = Encrypted audio channel</li>
+		</ul>
+		
+		<a href="./archive/1.png"><img src="./archive/1.png"></a>
+		<a href="./archive/2.png"><img src="./archive/2.png"></a>
+		<a href="./archive/3.png"><img src="./archive/3.png"></a>
+		<a href="./archive/4.png"><img src="./archive/4.png"></a>
+		<a href="./archive/5.png"><img src="./archive/5.png"></a>
+		<a href="./archive/6.png"><img src="./archive/6.png"></a>
+		<a href="./archive/7.png"><img src="./archive/7.png"></a>
+		<a href="./archive/8.png"><img src="./archive/8.png"></a>
+		<a href="./archive/9.png"><img src="./archive/9.png"></a>
+		<a href="./archive/10.png"><img src="./archive/10.png"></a>
+		<a href="./archive/11.png"><img src="./archive/11.png"></a>
+		<a href="./archive/ChangeKey.png"><img src="./archive/ChangeKey.png"></a>
+
+
+		<p>The DVB standard uses the CSA algorithm to encrypt the audio and/or video packets. The keys to use with the CSA algorithm (aka CW) are updated every few seconds and they are sended encrypted inside the ECMs (except some CA systems like BISS where there aren't ECMS and the CW doesn't change frequently).</p>
+
+		<p>To resolve the challenge, we will focus on PIDs 0404 and 0405 where we can find the encrypted audio and the ECMs to decrypt it.</p>
+
+		<h2 id="step12">0405 - Audio Packets</h2>
+		<p>Following the DVB standard, the header of TS packets gives us usefull information. We can see packets encrypted with even CW and others with od CW. Some have Adaptation Field. And there is a flag to indicate if a packet is the beggiining of a PES packet.</p>
+		<p>Algunos Ejemplos de cabeceras:</p>
+		<ul>
+			<li>474405Fx -> Initial, Odd CW, Adaptation Field</li>
+			<li>470405Fx -> NOT Initial, Odd CW, Adaptation Field</li> 
+			<li>470405Dx -> NOT Initial, Odd CW, NOT Adaptation Field</li>
+			<li>474405Bx -> Initial, Even CW, Adaptation Field</li>
+			<li>470405Bx -> NOT Initial, Even CW, Adaptation Field</li>
+			<li>4704059x -> NOT Initial, Even CW, NOT Adaptation Field</li>
+		</ul>
+		<p>First Initial Packet encrypted with Odd CW</p>
+		<div class="code">474405F0 075000007B0C7E00   751555EB48033A7D37E375CA57090AFD474970291C8A83153BA8B929F0400596052C312C9892E8A45048BD4A5712F3460DCFE9CC43C8981DAE5C11D40FF5ACC9263D90E247FE42987FB0C64A6D8060923D01FE5780654459AC02DD0537FD40729A0715983A449FC0E6601BD09FE67136D3F06AB88CD2D5F42D9F1572814E7A493EC48941F1E8E8CE94114EEC930F018DD0D4BA92481B6D0CCDA402BC5526810813C6A11FD033AE1EB61C2335F53DE22C
+(Header) (Adaptation Field) (Data)</div>
+		<p>First Initial Packet encrypted with Even CW</p>
+		<div class="code">474405B6 075000015529FE81   C4B8715DA78BA62721415BC995357AC21AEFB341B133B24A03CF1A0011F1D76DDA2687334478AC41EE9F38AE71814C9BD96E3BEA2812F47DC898C078FD6D5CE949EEDDA243A0853CD60C819FB923F2E619879DCD3F4B7CF9132E66C883E03E28020CF910C06ABFF42E76F980A1FF17026D6A77E44B19EDF73A19108ABAF01FF17863A5B9E2C81F1B171B1604FE80CB416F4A154FA4463D34AE1779D9BE0B6CA8A5CE5EF202EB7927CD68AC853D71C8E3
+(Header) (Adaptation Field) (Data)</div>
+
+		<h2 id="step13">0404 - ECMs</h2>
+		<div class="code">80B08AFFFFC30000 00 0C9B810F65AAF0A936640B97F4FCAA0A91D43EE512CF4481BB02E377CBC39FCF4651207D4628FE3046E8ACDBF8BFF0FE18E2AC81943E9CE5E8814198497A6B0252DC04A06DFDA77A4FBBFC7E9D3DAA8A23DFD06E529D200AF56DE63421BED5BEB74B80BE4AA3C8D7F0C98B525B2552AD341C431985709C60B4C704200DF0D08E 227EE00D
+80B08AFFFFC30000 01 DB92F699EA651B4858ED4742BB2B56341CC3970FDC6F350DCCFC0AAAEC290E8E544634361CB08CA21CD8412665274A5AE8D6C1F8232F9D3C2C222018111B469257846D2CAFBCA23528BFCF18DCEEA6B178E2BDF3C3796600FBACA9AC437C15537EDB957B989667EC7D564F6A214B41C43961054D7623A8F3AF68242B8B7A267F 25FB858B
+80B08AFFFFC30000 00 E2A596C3246AA4A9069B3215B5942598F5C36E4BCFB2DA82B8452771164FDB5A1E0CAB44153A48B284A2503FABB6419595EBE11D099120C67301BDF98E16BFAB6ACB055586900FC62E60D83D1405445918285EB6ED2E7CF296A19F2F2DA6F03D37464AAD7809E9F244476C4C2E509EB69B3BA9227BB5DF9C6CDC5694BEE04B44 47745F68
+80B08AFFFFC30000 01 58E5085774E0E88AB799B07580FF120B127499C15E7BDA6F5A9EDB785FC01C16646A3DB9069C55997C6BE6021486F839DC1C228142A80BF64802112A062385AF5C270BBE642AD786AA4C6496C92E16571A5D2906E0289B7E1E531837DF4ED9DEDC68FC1CA5AE7866CAF653EC949F5A679AD054A388F47DCEA2F4BBCFA83C94B3 93B95743
+...</div>
+
+		<p>We can see that the ECMs consist of:</p>
+		<ul>
+			<li>Header(8 bytes). Always the same 80B08AFFFFC30000. Curiously, the first byte doesn't change between 80 and 81 to indicate the change of ECM/CW</li>
+			<li>A flag (1 byte) that toggles between 00 and 01. ¿Will this flag show us what CW is inside the ECM? Later, we will see...</li>
+			<li>Data (0x80 bytes). Apparently encrypted </li>
+			<li>CRC? (4 bytes)</li>
+		</ul>
+
+
+		<h1 id="step2">2 - Card Firmware Analysis</h1>
+		<p>The hint shows us a picture of a Funcard 4 card. Looking in internet this card we will quickly see that it has an AT90S8515 processor and an AT24C256 eeprom . It is enough to start to disassemble and see how it works.</p>
+		<p>Note: Without the hint we also should be able to recognize the processor. Looking at the beggining of the firmware we can see xxC0xxC0xxC0xxC0 (13 times xxC0). It seems a table with 13 jumps (a vector table). So, what processor used in smartcards have the interrupt vector table from address 0? ST...no, SLE...no, Texas... no, Motorola... no, ATMEL...yes!! We can try to dissasemble using the AVR asm and confirm that it works.</p>
+		<p><a href="http://www.atmel.com/images/doc0841.pdf">Datasheet AT90S8515</a></p>
+		
+		
+		<h2 id="step21">ECM Format</h2>
+		<p>Analyzing the disassemble we will see the format of ECMs must be like this:</p>
+		<div class="code">DD A2 00 00 F0  14 8E FE XX XX XX XX XX XX XX XX YY DATA...(0x80)...DATA ZZ ZZ ZZ ZZ</div>
+
+		<p>Header:</p>
+		<ul>
+			<li>CLA = It must be DD</li>
+			<li>INS = For ECMs it will be A2 (More commands inside the card are 84, 26/C6, 82 and CA)</li>
+			<li>P1 = It must be 00</li>
+			<li>P2 = It must be 00</li>
+			<li>LEN = Lenght of Body (In ECMs it must be > 3 and it should be F0)</li>
+		</ul>
+		<p>Body:</p>
+		<ul>
+			<li>14 = Fixed Byte</li>
+			<li>Lenght = It must be 8E and equal to LEN-2</li>
+			<li>FE = Fixed Byte</li>
+			<li>8 bytes = ? Not used</li>
+			<li>1 byte = Flag to update Even CW or Odd CW</li>
+			<li>0x80 bytes = Encrypted Data</li>
+			<li>4 bytes = CRC? Not used</li>
+		</ul>
+<p>Disassembled:<p>
+<div class="code dis">ROM:02FC _cmdA2_ECM:                             ; CODE XREF: Main_Function:cmdA2
+ROM:02FC                 lds     r24, header4_LEN
+ROM:02FE                 cpi     r24, 3
+ROM:02FF                 brcc    cmdA2_lenOK
+ROM:0300                 rjmp    send6700
+ROM:0301
+ROM:0301 cmdA2_lenOK:                            ; CODE XREF: Main_Function+188
+ROM:0301                 mov     r16, r28
+ROM:0302                 mov     r17, r29
+ROM:0303                 subi    r16, -0x21
+ROM:0304                 sbci    r17, -1
+ROM:0305                 mov     r14, r28
+ROM:0306                 mov     r15, r29
+ROM:0307                 ldi     r27, 0x24
+ROM:0308                 add     r14, r27
+ROM:0309                 adc     r15, r1
+ROM:030A
+ROM:030A cmdA2_loopRead3:                        ; CODE XREF: Main_Function+19C
+ROM:030A                 rcall   sendACK_COM
+ROM:030B                 rcall   readByte
+ROM:030C                 mov     r30, r16
+ROM:030D                 mov     r31, r17
+ROM:030E                 st      Z+, r24
+ROM:030F                 mov     r16, r30
+ROM:0310                 mov     r17, r31
+ROM:0311                 cp      r30, r14
+ROM:0312                 cpc     r31, r15
+ROM:0313                 brne    cmdA2_loopRead3
+ROM:0314                 ldd     r24, Y+0x21
+ROM:0315                 cpi     r24, 0x14       ; 14
+ROM:0316                 breq    loc_318
+ROM:0317                 rjmp    send6700
+ROM:0318
+ROM:0318 loc_318:                                ; CODE XREF: Main_Function+19F
+ROM:0318                 ldd     r20, Y+0x22
+ROM:0319                 mov     r18, r20
+ROM:031A                 ldi     r19, 0
+ROM:031B                 lds     r24, header4_LEN
+ROM:031D                 ldi     r25, 0
+ROM:031E                 sbiw    r24, 2
+ROM:031F                 cp      r18, r24        ; header[4] - 2
+ROM:0320                 cpc     r19, r25
+ROM:0321                 breq    loc_323
+ROM:0322                 rjmp    send6700
+ROM:0323
+ROM:0323 loc_323:                                ; CODE XREF: Main_Function+1AA
+ROM:0323                 cpi     r20, 0x8E       ; 8E
+ROM:0324                 breq    loc_326
+ROM:0325                 rjmp    send6700
+ROM:0326
+ROM:0326 loc_326:                                ; CODE XREF: Main_Function+1AD
+ROM:0326                 ldd     r24, Y+0x23
+ROM:0327                 andi    r24, 0xFD
+ROM:0328                 breq    loc_32A
+ROM:0329                 rjmp    send6700
+ROM:032A
+ROM:032A loc_32A:                                ; CODE XREF: Main_Function+1B1
+ROM:032A                 ldi     r17, 8
+ROM:032B
+ROM:032B cmdA2_loopRead8:                        ; CODE XREF: Main_Function+1B7
+ROM:032B                 rcall   sendACK_COM
+ROM:032C                 rcall   readByte
+ROM:032D                 subi    r17, 1          ; XX XX XX XX XX XX XX XX
+ROM:032E                 brne    cmdA2_loopRead8
+ROM:032F                 rcall   sendACK_COM
+ROM:0330                 rcall   readByte        ; YY (odd/even flag)
+ROM:0331                 mov     r14, r24
+ROM:0332                 ldi     r16, 0x76
+ROM:0333                 ldi     r17, 0
+ROM:0334
+ROM:0334 cmdA2_loopRead80:                       ; CODE XREF: Main_Function+1C8
+ROM:0334                 ldi     r27, 0
+ROM:0335                 cpi     r16, 0xF6
+ROM:0336                 cpc     r17, r27
+ROM:0337                 breq    loc_340
+ROM:0338                 rcall   sendACK_COM
+ROM:0339                 rcall   readByte        ; 0x80 DATA
+ROM:033A                 mov     r26, r16
+ROM:033B                 mov     r27, r17
+ROM:033C                 st      X+, r24         ; Store from 0076 to 00F5 (buffer)
+ROM:033D                 mov     r16, r26
+ROM:033E                 mov     r17, r27
+ROM:033F                 rjmp    cmdA2_loopRead80
+ROM:0340 ; ---------------------------------------------------------------------------
+ROM:0340
+ROM:0340 loc_340:                                ; CODE XREF: Main_Function+1C0
+ROM:0340                 rcall   sendACK_COM
+ROM:0341                 rcall   readByte        ; ZZ
+ROM:0342                 rcall   sendACK_COM
+ROM:0343                 rcall   readByte        ; ZZ
+ROM:0344                 rcall   sendACK_COM
+ROM:0345                 rcall   readByte        ; ZZ
+ROM:0346                 rcall   sendACK_COM
+ROM:0347                 rcall   readByte        ; ZZ</div>	
+<p>Download the complete disassembled: <a href="./archive/firmware.lst">firmware.lst</a></p>
+			
+		<h2 id="step22">CW Calculation</h2>
+		<p>After receive the ECM, the card computes the CW doing these steps:</p>
+		<ol>
+			<li>It starts with a known seed with lenght 16 bytes (numbers from 00 to 0F)</li>
+			<li>It makes 0x100 permutations of this seed according to the 0x80 bytes of ECM (known values) and the 0x80 bytes of eeprom (unknown bytes)</li>
+			<li>With the first 8 bytes of the seed and the 0x80 ECM bytes, the card calculates the CW.</li>
+		</ol>
+		<p>Disassembled:<p>
+		<div class="code dis">ROM:0330                 rcall   readByte        ; YY (odd/even flag)
+ROM:0331                 mov     r14, r24
+ROM:0332                 ldi     r16, 0x76
+ROM:0333                 ldi     r17, 0
+ROM:0334
+ROM:0334 cmdA2_loopRead80:                       ; CODE XREF: Main_Function+1C8
+ROM:0334                 ldi     r27, 0
+ROM:0335                 cpi     r16, 0xF6
+ROM:0336                 cpc     r17, r27
+ROM:0337                 breq    loc_340
+ROM:0338                 rcall   sendACK_COM
+ROM:0339                 rcall   readByte        ; 0x80 DATA
+ROM:033A                 mov     r26, r16
+ROM:033B                 mov     r27, r17
+ROM:033C                 st      X+, r24         ; Store from 0076 to 00F5 (buffer)
+ROM:033D                 mov     r16, r26
+ROM:033E                 mov     r17, r27
+ROM:033F                 rjmp    cmdA2_loopRead80
+...
+...
+ROM:034A                 ldi     r20, 0x80       ; Len = 80
+ROM:034B                 ldi     r22, 0
+ROM:034C                 ldi     r23, 0          ; Src = 0000
+ROM:034D                 ldi     r24, 0xF6
+ROM:034E                 ldi     r25, 0          ; Dest = 00F6 (buffer + 0x80)
+ROM:034F                 rcall   Read_Eeprom
+...
+...
+ROM:0353 loc_353:                                ; CODE XREF: Main_Function+1DA
+ROM:0353                 ldi     r24, 0x60
+ROM:0354                 rcall   sendByte
+ROM:0355                 mov     r30, r28
+ROM:0356                 mov     r31, r29
+ROM:0357                 adiw    r30, 1          ; Zreg = Yreg+1 = seed
+ROM:0358                 ldi     r24, 0          ; i=0
+ROM:0359
+ROM:0359 loopGenerateSeed:                       ; CODE XREF: Main_Function+1E5
+ROM:0359                 st      Z+, r24         ; seed[i] = i
+ROM:035A                 subi    r24, -1         ; i++
+ROM:035B                 cpi     r24, 0x10
+ROM:035C                 brne    loopGenerateSeed
+ROM:035D                 ldi     r24, 0x60
+ROM:035E                 rcall   sendByte
+ROM:035F                 mov     r8, r1          ; i=0
+ROM:0360
+ROM:0360 loopMixSeed:                            ; CODE XREF: Main_Function+205
+ROM:0360                                         ; Main_Function+20A
+ROM:0360                 mov     r30, r8
+ROM:0361                 ldi     r31, 0
+ROM:0362                 subi    r30, -0x76
+ROM:0363                 sbci    r31, -1
+ROM:0364                 ld      r24, Z          ; buffer[i]
+ROM:0365                 mov     r25, r24
+ROM:0366                 swap    r25
+ROM:0367                 andi    r25, 0xF        ; HN = (buffer[i] >> 4) & 0x0F
+ROM:0368                 ldi     r26, 1
+ROM:0369                 ldi     r27, 0
+ROM:036A                 add     r26, r28
+ROM:036B                 adc     r27, r29
+ROM:036C                 add     r26, r25
+ROM:036D                 adc     r27, r1
+ROM:036E                 ld      r25, X          ; XX = seed[HN]
+ROM:036F                 andi    r24, 0xF        ; LB = buffer[i] & 0x0F
+ROM:0370                 ldi     r30, 1
+ROM:0371                 ldi     r31, 0
+ROM:0372                 add     r30, r28
+ROM:0373                 adc     r31, r29
+ROM:0374                 add     r30, r24
+ROM:0375                 adc     r31, r1
+ROM:0376                 ld      r24, Z          ; YY = seed[LN]
+ROM:0377                 st      X, r24          ; seed[LN] = XX
+ROM:0378                 st      Z, r25          ; seed[HN] = YY
+ROM:0379                 inc     r8              ; i++
+ROM:037A                 mov     r24, r8
+ROM:037B                 andi    r24, 0xF
+ROM:037C                 brne    loopMixSeed
+ROM:037D                 tst     r8
+ROM:037E                 breq    loc_382
+ROM:037F                 ldi     r24, 0x60
+ROM:0380                 rcall   sendByte
+ROM:0381                 rjmp    loopMixSeed
+ROM:0382
+ROM:0382 loc_382:                                ; CODE XREF: Main_Function+207
+ROM:0382                 mov     r15, r1
+ROM:0383                 ldi     r20, 3
+ROM:0384
+ROM:0384 loop_Prepare_offset_CW:                 ; CODE XREF: Main_Function+210
+ROM:0384                 lsl     r14             ; offsetCW = OddEvenFlag << 3
+ROM:0385                 rol     r15
+ROM:0386                 dec     r20
+ROM:0387                 brne    loop_Prepare_offset_CW
+ROM:0388                 ldi     r30, 0x11
+ROM:0389                 ldi     r31, 0
+ROM:038A                 add     r30, r28
+ROM:038B                 adc     r31, r29
+ROM:038C                 add     r14, r30
+ROM:038D                 adc     r15, r31        ; r14:r15 =  Pointer to CW
+ROM:038E                 ldi     r16, 0
+ROM:038F                 ldi     r17, 0          ; r16:r17 = i = 0
+ROM:0390                 mov     r7, r1
+ROM:0391
+ROM:0391 loopGenerateCW:                         ; CODE XREF: Main_Function+246
+ROM:0391                 mov     r24, r16
+ROM:0392                 andi    r24, 3
+ROM:0393                 cpi     r24, 3          ; if (i & 3) == 3   (If is CW checksum Byte)
+ROM:0394                 breq    loc_3B1
+ROM:0395                 ldi     r24, 0x60
+ROM:0396                 rcall   sendByte
+ROM:0397                 mov     r26, r28
+ROM:0398                 mov     r27, r29
+ROM:0399                 adiw    r26, 1
+ROM:039A                 ldi     r18, 0
+ROM:039B                 mov     r24, r16
+ROM:039C                 mov     r25, r17
+ROM:039D                 subi    r24, -0x76
+ROM:039E                 sbci    r25, -1
+ROM:039F
+ROM:039F loopCalcCWByte:                         ; CODE XREF: Main_Function+235
+ROM:039F                 ld      r30, X+         ; seed[i]
+ROM:03A0                 ldi     r31, 0
+ROM:03A1                 ldi     r19, 3
+ROM:03A2
+ROM:03A2 loop:                                   ; CODE XREF: Main_Function+22E
+ROM:03A2                 lsl     r30             ; seed[i] >> 3
+ROM:03A3                 rol     r31
+ROM:03A4                 dec     r19
+ROM:03A5                 brne    loop
+ROM:03A6                 add     r30, r24        ; Pointer to buffer + i + (seed[i] >> 3) + i
+ROM:03A7                 adc     r31, r25
+ROM:03A8                 ld      r19, Z          ; YY = buffer[i + (seed[i] >> 3)]
+ROM:03A9                 eor     r18, r19        ; XX ^= YY
+ROM:03AA                 cp      r26, r10
+ROM:03AB                 cpc     r27, r11
+ROM:03AC                 brne    loopCalcCWByte
+ROM:03AD                 mov     r24, r18
+ROM:03AE                 add     r24, r7         ; temporal checksum
+ROM:03AF                 mov     r7, r18         ; r7 = Calculated Byte
+ROM:03B0                 rjmp    StoreCWByte
+ROM:03B1
+ROM:03B1 loc_3B1:                                ; CODE XREF: Main_Function+21D
+ROM:03B1                 ldi     r24, 0
+ROM:03B2
+ROM:03B2 StoreCWByte:                            ; CODE XREF: Main_Function+239
+ROM:03B2                 mov     r30, r14
+ROM:03B3                 mov     r31, r15
+ROM:03B4                 add     r30, r16
+ROM:03B5                 adc     r31, r17
+ROM:03B6                 st      Z, r7           ; CW[i] = r7
+ROM:03B7                 subi    r16, -1
+ROM:03B8                 sbci    r17, -1         ; i++
+ROM:03B9                 cpi     r16, 8
+ROM:03BA                 cpc     r17, r1
+ROM:03BB                 breq    endCW
+ROM:03BC                 mov     r7, r24         ; r7 = checksum
+ROM:03BD                 rjmp    loopGenerateCW</div>
+<p>Download the complete disassembled: <a href="./archive/firmware.lst">firmware.lst</a></p>
+		
+		<p>C# Code:</p> 
+		<div class="code">byte[] buffer = new byte[0x100];
+for (int i = 0; i < 0x80; i++) buffer[i] = ecmdata[i];     //Known
+for (int i = 0; i < 0x80; i++) buffer[i + 0x80] = eepromData[i];     //Unknown
+
+byte[] seed = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F}
+for (int i = 0; i < 0x100; i++)
+{
+   int a = buffer[i] & 0x0F;
+   int b = buffer[i] >> 4;
+   byte tmp = seed[a];
+   seed[a] = seed[b];
+   seed[b] = tmp;
+}
+
+byte[] cw = new byte[8];
+for (int i = 0; i < 8; i++)
+{
+   if ((i % 4) != 3)     //No checksum Byte
+   {
+      for (int j = 0; j < 8; j++) cw[i] ^= buffer[i + (seed[j] << 3)];
+   }
+   else     //Checksum Byte
+   {
+      cw[i] = (byte)(cw[i - 1] + cw[i - 2] + cw[i - 3]);
+   }
+}</div>
+
+		<h2 id="step23">Weaknesses Analysis</h2>
+		<p>In the algorithm used we can find 3 weaknesses. These weaknesses will let us decrypt the stream without know the eeprom data.</p>
+
+		<h3>Weakness #1</h3>
+		<p>To compute a key of 48 bits (+16 checksum bits), it is using a smaller seed (less complex). In this example, 8 bytes of a group of 16 known bytes, it is...</p>
+		<div class="code">16!
+--- = 16*15*14*13*12*11*10*9 = 518.918.400 = 0x1EEE1100 posibilities
+8!</div>
+<p><b>This is a reasonable number to bruteforce</b></p>
+		<h3>Weakness #2</h3>
+		<p>Although the lenght of the eeprom data (unkown key) is 0x80 bytes. The algorithm used gives a equivalent complexity to 8 bytes. Because, mix the data a lot of times is unuseful, the only important thing is the final positions, and we can obtain the same positions, doing only 8 permutations.</p>
+
+		<h3>Weakness #3</h3>
+		<p>The algorithm used lets us to obtain the eeprom data knowing a CW. Bruteforcing one CW, we will can compute a eeprom data valid to decrypt all the ECMs.</p>
+
+		<h1 id="step3">3 - Decrypt the stream</h1>
+		<h2 id="step31">Bruteforce</h2>
+		<p><b>1 - </b>We get the first ECM</p>
+		<div class="code">80B0 8A FFFFC30000 00 0C9B810F65AAF0A936640B97F4FCAA0A91D43EE512CF4481BB02E377CBC39FCF4651207D4628FE3046E8ACDBF8BFF0FE18E2AC81943E9CE5E8814198497A6B0252DC04A06DFDA77A4FBBFC7E9D3DAA8A23DFD06E529D200AF56DE63421BED5BEB74B80BE4AA3C8D7F0C98B525B2552AD341C431985709C60B4C704200DF0D08E 227EE00D</div>
+		<br>
+		<p><b>2 - </b>It is an "Even" ECM (the 8th byte is 00), so we search the first "initial" audio packet encrypted with the even CW.</p>
+		<div class="code">474405B6 075000015529FE81 C4B8715DA78BA62721415BC995357AC21AEFB341B133B24A03CF1A0011F1D76DDA2687334478AC41EE9F38AE71814C9BD96E3BEA2812F47DC898C078FD6D5CE949EEDDA243A0853CD60C819FB923F2E619879DCD3F4B7CF9132E66C883E03E28020CF910C06ABFF42E76F980A1FF17026D6A77E44B19EDF73A19108ABAF01FF17863A5B9E2C81F1B171B1604FE80CB416F4A154FA4463D34AE1779D9BE0B6CA8A5CE5EF202EB7927CD68AC853D71C8E3</div>
+		</p>Because this packet is the first of a PES packet, we know that the 4 first bytes of this packet decrypted will be 00 00 01 C0 (looking the plain audio packets of PID 0401 we can confirm it)... so, we already have all the needed information to make bruteforce.</p>
+		<br>		
+		<p><b>3 - </b>Bruteforce the seed using the first ECM and the audio packet</p>
+		<div class="code">byte[] encrypted_audio = {0xC4, 0xB8, 0x71, 0x5D, 0xA7, 0x8B, 0xA6, 0x27, 0x21, 0x41, 0x5B, 0xC9 }; //The first 12 bytes are enough to decrypt 4 bytes
+byte[] ecmdata = {0x0C, 0x9B, 0x81, 0x0F, 0x65, 0xAA, 0xF0, 0xA9, 0x36, 0x64, 0x0B, 0x97, 0xF4, 0xFC, 0xAA, 0x0A, 0x91, 0xD4, 0x3E, 0xE5, 0x12, 0xCF, 0x44, 0x81, 0xBB, 0x02, 0xE3, 0x77, 0xCB, 0xC3, 0x9F, 0xCF, 0x46, 0x51, 0x20, 0x7D, 0x46, 0x28, 0xFE, 0x30, 0x46, 0xE8, 0xAC, 0xDB, 0xF8, 0xBF, 0xF0, 0xFE, 0x18, 0xE2, 0xAC, 0x81, 0x94, 0x3E, 0x9C, 0xE5, 0xE8, 0x81, 0x41, 0x98, 0x49, 0x7A, 0x6B, 0x02, 0x52, 0xDC, 0x04, 0xA0, 0x6D, 0xFD, 0xA7, 0x7A, 0x4F, 0xBB, 0xFC, 0x7E, 0x9D, 0x3D, 0xAA, 0x8A, 0x23, 0xDF, 0xD0, 0x6E, 0x52, 0x9D, 0x20, 0x0A, 0xF5, 0x6D, 0xE6, 0x34, 0x21, 0xBE, 0xD5, 0xBE, 0xB7, 0x4B, 0x80, 0xBE, 0x4A, 0xA3, 0xC8, 0xD7, 0xF0, 0xC9, 0x8B, 0x52, 0x5B, 0x25, 0x52, 0xAD, 0x34, 0x1C, 0x43, 0x19, 0x85, 0x70, 0x9C, 0x60, 0xB4, 0xC7, 0x04, 0x20, 0x0D, 0xF0, 0xD0, 0x8E};
+byte[] decrypted_audio = new byte[4]; 
+
+for (byte b1 = 0; b1 < 0x10; b1++)
+{
+   for (byte b2 = 0; b2 < 0x10; b2++)
+   {
+      if (b1 == b2) continue;
+      for (byte b3 = 0; b3 < 0x10; b3++)
+      {
+         if ((b1 == b3) || (b2 == b3)) continue;
+         for (byte b4 = 0; b4 < 0x10; b4++)
+         {
+            if ((b1 == b4) || (b2 == b4) || (b3 == b4)) continue;
+            for (byte b5 = 0; b5 < 0x10; b5++)
+            {
+               if ((b1 == b5) || (b2 == b5) || (b3 == b5) || (b4 == b5)) continue;
+               for (byte b6 = 0; b6 < 0x10; b6++)
+               {
+                  if ((b1 == b6) || (b2 == b6) || (b3 == b6) || (b4 == b6) || (b5 == b6)) continue;
+                  for (byte b7 = 0; b7 < 0x10; b7++)
+                  {
+                     if ((b1 == b7) || (b2 == b7) || (b3 == b7) || (b4 == b7) || (b5 == b7) || (b6 == b7)) continue;
+                     for (byte b8 = 0; b8 < 0x10; b8++)
+                     {
+                        if ((b1 == b8) || (b2 == b8) || (b3 == b8) || (b4 == b8) || (b5 == b8) || (b6 == b8) || (b7 == b8)) continue;
+
+                        byte[] seed = { b1, b2, b3, b4, b5, b6, b7, b8 };
+                        byte[] cw = new byte[8];
+                        for (int i = 0; i < 8; i++)
+                        {
+                           if ((i % 4) != 3)
+                           {
+                              for (int j = 0; j < 8; j++) cw[i] ^= ecmdata[i + (seed[j] << 3)];
+                           }
+                           else
+                           {
+                              cw[i] = (byte)(cw[i - 1] + cw[i - 2] + cw[i - 3]);
+                           }
+                        }
+
+                        CSA.decryptsoft(cw, encrypted_audio, decrypted_audio);   //It's a standard CSA decryption but limited to first 4 bytes instead of the complete packet, to speed up the bruteforce
+                        if ((res[0] == 0x00) && (res[1] == 0x00) && (res[2] == 0x01))
+                        {
+                           tresul.Text = "Hit! CW=" + bytetostring(cw) + " Seed= " + bytetostring(seed) + " Audio=" + bytetostring(res);
+                           return;
+                        }
+                     }
+                  }
+               }
+            }
+         }
+      }
+   }
+}</div>		
+		<p>And, after few minutes... <b>Hit! CW=836219FE3C242989 Seed=02050607080B0C0F Audio=000001C0</b></p>
+		<br>
+		<p><b>4 - </b>We check that the CW works and it can decrypt the entire audio packet</p>
+		<div class="code">000001C009D48080052100137109FFF5C2C4FFFFFFFFFFFFFFFFFFF52D35D4FDD556CA4A4BA8D55450FBB0BAFD775D7616E97577553494596D96D75D77DD6E195F85EB56E587AB9CCDC8056DE4FFA2A5B82C3D5A9ECF6989642CA21F195E132CDAEAC91BE01E80D7E955DB28E60910CF32AA697E029C957665BEA7D7D445AA0F4D22DF156D8F547DBCB396CE314F24F4DD069DB485CA66D18B1260F40DE7F569BDB13A8741DBEF41450B92A7636C5AB5</div>
+		<br>
+		<h2 id="step32">Creating equivalent EEprom</h2>
+		<p><b>5 - </b>We already knwon the seed after the data mixing, so we can compute a equivalent mixing to the 0x80 permutations of eeprom data</p>
+				<p>A-Compute the Seed after the 0x80 permutations with ECM bytes</p>
+				<div class="code">byte[] buffer = {0x0C, 0x9B, 0x81, 0x0F, 0x65, 0xAA, 0xF0, 0xA9, 0x36, 0x64, 0x0B, 0x97, 0xF4, 0xFC, 0xAA, 0x0A, 0x91, 0xD4, 0x3E, 0xE5, 0x12, 0xCF, 0x44, 0x81, 0xBB, 0x02, 0xE3, 0x77, 0xCB, 0xC3, 0x9F, 0xCF, 0x46, 0x51, 0x20, 0x7D, 0x46, 0x28, 0xFE, 0x30, 0x46, 0xE8, 0xAC, 0xDB, 0xF8, 0xBF, 0xF0, 0xFE, 0x18, 0xE2, 0xAC, 0x81, 0x94, 0x3E, 0x9C, 0xE5, 0xE8, 0x81, 0x41, 0x98, 0x49, 0x7A, 0x6B, 0x02, 0x52, 0xDC, 0x04, 0xA0, 0x6D, 0xFD, 0xA7, 0x7A, 0x4F, 0xBB, 0xFC, 0x7E, 0x9D, 0x3D, 0xAA, 0x8A, 0x23, 0xDF, 0xD0, 0x6E, 0x52, 0x9D, 0x20, 0x0A, 0xF5, 0x6D, 0xE6, 0x34, 0x21, 0xBE, 0xD5, 0xBE, 0xB7, 0x4B, 0x80, 0xBE, 0x4A, 0xA3, 0xC8, 0xD7, 0xF0, 0xC9, 0x8B, 0x52, 0x5B, 0x25, 0x52, 0xAD, 0x34, 0x1C, 0x43, 0x19, 0x85, 0x70, 0x9C, 0x60, 0xB4, 0xC7, 0x04, 0x20, 0x0D, 0xF0, 0xD0, 0x8E};
+byte[] seed = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F}
+for (int i = 0; i < 0x80; i++)
+{
+   int a = buffer[i] & 0x0F;
+   int b = buffer[i] >> 4;
+   byte tmp = seed[a];
+   seed[a] = seed[b];
+   seed[b] = tmp;
+}
+tresul.Text = "Seed after mixing with ECM bytes: " + bytetostring(seed);</div>	
+
+		<p>-> <b>Seed after mixing with ECM bytes: 0908030E0407020F0B000D0A01050C06</b></p>
+		<p>B-Comparing this result with the final seed obtained with the bruteforce, we can see the 8 equivalet permutations to the eeprom data</p>
+		<ul>	
+		<li> 1ºByte goes to position ??</li>
+		<li> 2ºByte goes to position <b>04</b></li>
+		<li> 3ºByte goes to position ??</li>
+		<li> 4ºByte goes to position ??</li>
+		<li> 5ºByte goes to position ??</li>
+		<li> 6ºByte goes to position <b>03</b></li>
+		<li> 7ºByte goes to position <b>00</b></li>
+		<li> 8ºByte goes to position <b>07</b></li>
+		<li> 9ºByte goes to position <b>05</b></li>
+		<li>10ºByte goes to position ??</li>
+		<li>11ºByte goes to position ??</li>
+		<li>12ºByte goes to position ??</li>
+		<li>13ºByte goes to position ??</li>
+		<li>14ºByte goes to position <b>01</b></li>
+		<li>15ºByte goes to position <b>06</b></li>
+		<li>16ºByte goes to position <b>02</b></li>
+		</ul>	
+		<p>byte[] equivalentMixingEEP = {6, 13, 15, 5, 1, 8, 14, 7};</p>
+				
+		<p><b>6 - </b>Test to get the CW without use BruteForce</p>
+		<div class="code">byte[] buffer = {0x0C, 0x9B, 0x81, 0x0F, 0x65, 0xAA, 0xF0, 0xA9, 0x36, 0x64, 0x0B, 0x97, 0xF4, 0xFC, 0xAA, 0x0A, 0x91, 0xD4, 0x3E, 0xE5, 0x12, 0xCF, 0x44, 0x81, 0xBB, 0x02, 0xE3, 0x77, 0xCB, 0xC3, 0x9F, 0xCF, 0x46, 0x51, 0x20, 0x7D, 0x46, 0x28, 0xFE, 0x30, 0x46, 0xE8, 0xAC, 0xDB, 0xF8, 0xBF, 0xF0, 0xFE, 0x18, 0xE2, 0xAC, 0x81, 0x94, 0x3E, 0x9C, 0xE5, 0xE8, 0x81, 0x41, 0x98, 0x49, 0x7A, 0x6B, 0x02, 0x52, 0xDC, 0x04, 0xA0, 0x6D, 0xFD, 0xA7, 0x7A, 0x4F, 0xBB, 0xFC, 0x7E, 0x9D, 0x3D, 0xAA, 0x8A, 0x23, 0xDF, 0xD0, 0x6E, 0x52, 0x9D, 0x20, 0x0A, 0xF5, 0x6D, 0xE6, 0x34, 0x21, 0xBE, 0xD5, 0xBE, 0xB7, 0x4B, 0x80, 0xBE, 0x4A, 0xA3, 0xC8, 0xD7, 0xF0, 0xC9, 0x8B, 0x52, 0x5B, 0x25, 0x52, 0xAD, 0x34, 0x1C, 0x43, 0x19, 0x85, 0x70, 0x9C, 0x60, 0xB4, 0xC7, 0x04, 0x20, 0x0D, 0xF0, 0xD0, 0x8E};
+byte[] seed = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F}
+for (int i = 0; i < 0x80; i++)
+{
+   int a = buffer[i] & 0x0F;
+   int b = buffer[i] >> 4;
+   byte tmp = seed[a];
+   seed[a] = seed[b];
+   seed[b] = tmp;
+}
+
+byte[] finalSeed = new byte[8]; //We need only 8 bytes
+for (int i = 0; i < 8; i++)
+{
+   finalSeed[i] = seed[equivalentMixingEEP[i]];
+}
+
+byte[] cw = new byte[8];
+for (int i = 0; i < 8; i++)
+{
+   if ((i % 4) != 3)
+   {
+      for (int j = 0; j < 8; j++) cw[i] ^= buffer[i + (finalSeed[j] << 3)];
+   }
+   else
+   {
+      cw[i] = (byte)(cw[i - 1] + cw[i - 2] + cw[i - 3]);
+   }
+}
+tresul.Text = "CW: " + bytetostring(cw);</div>
+					
+		<p>-> <b>CW: 836219FE3C242989</b></p>
+		
+		<h2 id="step33">Decrypting Audio</h2>
+		<p><b>6 - </b>Knowing how to decrypt the ECMs, we can prepare a complete emu and decrypt the audio :)</p>
+		<div class="code">private byte[] decryptECM(byte[] buffer)
+{
+   byte[] seed = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F}
+   for (int i = 0; i < 0x80; i++)
+   {
+      int a = buffer[i] & 0x0F;
+      int b = buffer[i] >> 4;
+      byte tmp = seed[a];
+      seed[a] = seed[b];
+      seed[b] = tmp;
+   }
+
+   byte[] finalSeed = new byte[8]; //We need only 8 bytes
+   for (int i = 0; i < 8; i++)
+   {
+      finalSeed[i] = seed[equivalentMixingEEP[i]];
+   }
+   
+   byte[] cw = new byte[8];
+   for (int i = 0; i < 8; i++)
+   {
+      if ((i % 4) != 3)
+      {
+         for (int j = 0; j < 8; j++) cw[i] ^= buffer[i + (finalSeed[j] << 3)];
+      }
+      else
+      {
+         cw[i] = (byte)(cw[i - 1] + cw[i - 2] + cw[i - 3]);
+      }
+   }
+   return cw;
+}
+private byte[] getBytes(byte[] data, int offset, int len)
+{
+   byte[] result = new byte[len];
+   for (int i = 0; i < len; i++) result[i] = data[offset + i];
+   return result;
+}
+private void decryptTS()
+{
+   Stream instream = File.OpenRead("transponder.ts");
+   BinaryReader bufin = new BinaryReader(instream);
+   byte[] tsFile = new byte[instream.Length];
+   bufin.Read(tsFile, 0, tsFile.Length);
+   bufin.Close();
+   instream.Close();
+
+   FileStream stream = new FileStream("audio_decrypted.mpa", FileMode.Create, FileAccess.Write);
+   BinaryWriter writer = new BinaryWriter(stream);
+
+   bool writeResult = false;
+   byte flagECM = 0xFF;
+   byte[] cwEven = new byte[8];
+   byte[] cwOdd = new byte[8]; 
+
+   for (int pos = 0; pos < tsFile.Length; pos += 188)
+   {
+      byte[] ts = getBytes(tsFile, pos, 188);
+
+      ushort PID = (ushort)(((ts[1] << 8) + ts[2]) & 0x1FFF);
+      switch (PID)
+      {
+         case 0x0404: //ECM
+            {
+               if (ts[13] != flagECM)
+               {
+                  flagECM = ts[13];
+                  if (ts[13] == 0) cwEven = decryptECM(getBytes(ts, 14, 0x80));
+                  else if (ts[13] == 1) cwOdd = decryptECM(getBytes(ts, 14, 0x80));
+               }
+            }
+            break;
+         case 0x0405: //Audio
+            {
+               int AFsize = 0;
+               if ((ts[3] & 0x20) > 0)   //There is AF
+               {
+                  AFsize = ts[4] + 1;
+               }
+               byte[] data = getBytes(ts, 4 + AFsize, 0xBC - 4 - AFsize);
+               byte[] result = new byte[data.Length];
+
+               if ((ts[3] & 0x40) == 0)
+                  CSA.decrypt(cwEven, data, result);
+               else
+                  CSA.decrypt(cwOdd, data, result);
+
+               if ((result[0] == 0x00) && (result[1] == 0x00) && (result[2] == 0x01) && (result[3] == 0xC0)) writeResult = true;
+
+               if (writeResult)   //We wait the first initial packet decrypted correctly to write the result in the file
+               {
+                  writer.Write(result);
+               }
+            }
+            break;
+         default:
+            //Ignore other PIDs
+            break;
+      }
+   }
+
+   writer.Close();
+   stream.Close();
+}</div>
+
+	<h2 id="step34">Flag</h2>
+	<p><b>7 - </b>We can listen the file audio_decrypted.mpa:</p>
+	<p>Download audio <a href="./archive/audio_decrypted.zip">audio_decrypted.zip</a></p>
+	<p>Congratulations, the flag is <b>32c3_youre_listening_to_flagfm_radio</b></p>
+	
+	</div>
+</body>
+</html>
